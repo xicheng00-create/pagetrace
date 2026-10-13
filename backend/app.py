@@ -50,7 +50,7 @@ def create_app(env: str | None = None) -> Flask:
         static_url_path="",
     )
     app.config.from_object(get_config(env))
-    for key in ("DATABASE_PATH", "UPLOAD_ROOT"):
+    for key in ("DATABASE_PATH", "UPLOAD_ROOT", "LLM_TIMEOUT"):
         if key in os.environ:
             app.config[key] = os.environ[key]
     if "UPLOAD_WORKER_ENABLED" in os.environ:

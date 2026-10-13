@@ -241,3 +241,26 @@ def test_timeout_is_configurable(monkeypatch):
     monkeypatch.setenv('LLM_TIMEOUT', 'not-a-number')
     assert llm.complete([{'role': 'user', 'content': 'x'}]) == 'ok'
     assert seen[-1] == 30
+
+
+def test_timeout_env_visible_inside_app(monkeypatch, tmp_path):
+    """回归（2026-10-13 真跑抓到）：应用内 config() 读的是 current_app.config，不是 os.environ。
+    只把读取写进 llm.py 时，app 里永远拿到默认 30 秒——表现是「慢的本地模型上传后一律 job failed」。
+    所以 LLM_TIMEOUT 必须同时进 BaseConfig 与 create_app 的环境覆写清单。"""
+    import app as app_module
+    monkeypatch.setenv('LLM_TIMEOUT', '11')
+    monkeypatch.setenv('DATABASE_PATH', str(tmp_path / 'review.sqlite3'))
+    flask_app = app_module.create_app('development')
+    # LLM_PROVIDER 等是 config.py 导入期快照，测试里直接改 app.config 才可控（真跑时 env 在启动前设好）。
+    flask_app.config['LLM_PROVIDER'] = 'local'
+    flask_app.config['LLM_API_KEY'] = ''
+    seen = []
+    def post(url, **kwargs):
+        seen.append(kwargs['timeout'])
+        return SimpleNamespace(raise_for_status=lambda: None,
+                               json=lambda: {'choices': [{'message': {'content': 'ok'}}]})
+    monkeypatch.setitem(sys.modules, 'requests', SimpleNamespace(post=post))
+    with flask_app.app_context():
+        assert llm.config('LLM_TIMEOUT') == '11'
+        assert llm.complete([{'role': 'user', 'content': 'x'}], feature='quiz') == 'ok'
+    assert seen[-1] == 11

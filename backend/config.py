@@ -78,6 +78,7 @@ class BaseConfig:
     LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "")
     LLM_MODEL = os.environ.get("LLM_MODEL", "deepseek-chat")
     LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
+    LLM_TIMEOUT = os.environ.get("LLM_TIMEOUT", "")
 
     FREEZE_BASE = int(os.environ.get("FREEZE_BASE", "3"))
 
