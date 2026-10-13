@@ -1,5 +1,7 @@
 # pagetrace · 学而时习之
 
+[![CI](https://github.com/xicheng00-create/pagetrace/actions/workflows/ci.yml/badge.svg)](https://github.com/xicheng00-create/pagetrace/actions/workflows/ci.yml)
+
 把一本书变成可复习的卡片，每张卡能翻回原书页码
 
 ## 界面
