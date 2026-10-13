@@ -81,7 +81,7 @@
 - UP-008 两任务并发实测与去锁反证，worker 日志不含正文。
 - UP-009 上传提交/后端可用性/轮询；副本临时实例注入 stub provider，浏览器 PDF→进度→保留删除→.primary 确认→卡池正向验收通过。
 - UP-005 首次真跑失败（根因 = 接线缺失，见下），**pm 复验已通过**：同一 PDF 连上两次 → 第二次 `reused=true`、LLM 账本 +0 行、`books 1→1`、`reasoning_tokens=0`；证据 `reports/r4-logs/up005-real-pm-rerun.log`（首跑失败原文保留在 `up005-real.log`，不覆盖）。
-- **缺陷修复（LLM 接线自检，pm 补）**：本机 `settings.local` 原先**没有**任何 `LLM_*` 接线 → config 默认 `provider=proxy` + 空 `LLM_API_KEY` → 本地 LiteLLM 返回 **401** → 出卡必失败（异常被收敛成 `job failed`，真跑现场几乎不可查）。修：`settings.local` 补 `LLM_PROVIDER/LLM_BASE_URL/LLM_MODEL/LLM_API_KEY`（备份 `settings.local.bak-20261011-230632`，`settings.local` 不入库）；`proxy` 档缺 key → `create_app` 启动 WARNING（`backend/app.py`）；`settings.local.example` 补模板（占位不含真密钥）。断言 `tests/test_llm.py::test_proxy_provider_without_key_warns_at_boot`；口径 `DESIGN_SPEC §11 UP-012 接线口径` + `§12 [0.15.5]`。
+- **缺陷修复（LLM 接线自检，pm 补）**：本机 `.env` 原先**没有**任何 `LLM_*` 接线 → config 默认 `provider=proxy` + 空 `LLM_API_KEY` → 本地 LiteLLM 返回 **401** → 出卡必失败（异常被收敛成 `job failed`，真跑现场几乎不可查）。修：`.env` 补 `LLM_PROVIDER/LLM_BASE_URL/LLM_MODEL/LLM_API_KEY`（备份 `.env.bak-20261011-230632`，`.env` 不入库）；`proxy` 档缺 key → `create_app` 启动 WARNING（`backend/app.py`）；`.env.example` 补模板（占位不含真密钥）。断言 `tests/test_llm.py::test_proxy_provider_without_key_warns_at_boot`；口径 `DESIGN_SPEC §11 UP-012 接线口径` + `§12 [0.15.5]`。
 - 同步后端与前端版本 0.15.5；未改复习/出题/掌握度/连胜口径，未写生产库。详见 reports/S1-round4.md。
 
 ## [0.15.4] - 2026-10-11 · S1 三轮收口
@@ -506,7 +506,7 @@
 
 ### 说明
 - **判分路径零网络**：反向断言 `tests/test_quiz.py::test_grading_module_has_no_network_client`（`services/quiz.py` 无 `requests`/`httpx`/`openai` 字样）。
-- **未改 `settings.local`、未打印任何密钥值、不 push、不碰 launchd**；M2-B1 不含 MAST / HOME / TASK（仍 ❌）。
+- **未改 `.env`、未打印任何密钥值、不 push、不碰 launchd**；M2-B1 不含 MAST / HOME / TASK（仍 ❌）。
 - `backend/app.py` 与 `backend/config.py` 同步 → `0.5.4`。
 
 ## [0.5.3] - 2026-09-27 · 规格与规则固化（UI 机械断言）

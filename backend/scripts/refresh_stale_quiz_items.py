@@ -26,10 +26,10 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-# 与 `app.py` 同源加载 `settings.local`：不加载 → `DEEPSEEK_API_KEY` 为空 → 全部机械降级，刷新等于白刷
+# 与 `app.py` 同源加载 `.env`：不加载 → `DEEPSEEK_API_KEY` 为空 → 全部机械降级，刷新等于白刷
 from dotenv import load_dotenv  # noqa: E402
 
-load_dotenv(BACKEND_DIR.parent / "settings.local")
+load_dotenv(BACKEND_DIR.parent / ".env")
 
 from services import language, quizgen  # noqa: E402
 

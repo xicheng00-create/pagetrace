@@ -1,4 +1,5 @@
 [
+  ".env.example",
   ".github/workflows/ci.yml",
   ".gitignore",
   "CHANGELOG.md",
@@ -104,6 +105,8 @@
   "backend/services/upload.py",
   "backend/services/worker.py",
   "demo/cards.jsonl",
+  "docs/screenshots/card.png",
+  "docs/screenshots/home.png",
   "pytest.ini",
   "requirements.txt",
   "ruff.toml",

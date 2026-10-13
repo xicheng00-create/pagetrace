@@ -1,6 +1,6 @@
 """pagetrace — 应用工厂入口。
 
-职责：加载 settings.local → 建 Flask app（开发/生产同款进程模型）→ 注册蓝图 → 初始化库 →
+职责：加载 .env → 建 Flask app（开发/生产同款进程模型）→ 注册蓝图 → 初始化库 →
 静态托管 backend/frontend（PWA）。生产用 waitress（单进程 4 线程）。
 """
 import logging
@@ -15,7 +15,7 @@ BACKEND_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BACKEND_DIR.parent
 # 让 backend 内部用绝对导入（from data.db import ... / from api.health import ...）
 sys.path.insert(0, str(BACKEND_DIR))
-load_dotenv(REPO_ROOT / "settings.local")
+load_dotenv(REPO_ROOT / ".env")
 
 from api.auth import bp as auth_bp  # noqa: E402
 from api.books import bp as books_bp  # noqa: E402
@@ -63,7 +63,7 @@ def create_app(env: str | None = None) -> Flask:
     if app.config.get("LLM_PROVIDER") == "proxy" and not str(app.config.get("LLM_API_KEY") or "").strip():
         logging.getLogger(__name__).warning(
             "LLM_PROVIDER=proxy 但 LLM_API_KEY 为空：出卡/出题调用会 401 失败。"
-            "检查 settings.local 是否缺 LLM_* 接线（DESIGN_SPEC §11 UP-012）。"
+            "检查 .env 是否缺 LLM_* 接线（DESIGN_SPEC §11 UP-012）。"
         )
 
     db_mod.init_app(app)

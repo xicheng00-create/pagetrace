@@ -23,15 +23,15 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 ## 模型（LLM）配置
 
-只有「上传 PDF → 生成卡片」需要模型；**浏览、复习 demo 卡、多用户与邀请码注册都不需要密钥**。带一份示例配置，复制后按注释填自己的：
+只有「上传 PDF → 生成卡片」需要模型；**浏览、复习 demo 卡、多用户与邀请码注册都不需要密钥**。仓库带一份示例配置，复制后按注释填自己的：
 
 ```sh
 cp .env.example .env    # 填 LLM_API_KEY / LLM_BASE_URL / LLM_MODEL
 ```
 
-- 任何 **OpenAI 兼容端点**都能接（请求 `{base_url}/chat/completions`、`Authorization: Bearer <key>`）：厂商官方 API、自建 LiteLLM / One-API 网关、Ollama、vLLM 等
+- 任何 **OpenAI 兼容端点**都能接（请求 `{base_url}/chat/completions`，用 `Authorization` 请求头带密钥）：厂商官方 API、自建 LiteLLM / One-API 网关、Ollama、vLLM 等
 - `LLM_PROVIDER` 三选一：`official` 官方直连（未设 `LLM_BASE_URL` 时取 `DEEPSEEK_BASE_URL`）／`proxy` 自建网关（默认 `http://localhost:4000`）／`local` 本机模型（默认 `http://localhost:8080/v1`）
-- **别忘 `UPLOAD_WORKER_ENABLED=1`**：只填 key 不开这个开关，PDF 只会排队、不会出卡
+- **别忘 `UPLOAD_WORKER_ENABLED=1`**：只填密钥不开这个开关，PDF 只会排队、不会出卡
 - 对外提供服务前把 `APP_SECRET` / `JWT_SECRET` 改成随机值
 
 ## 首次建账号与认领

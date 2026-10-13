@@ -17,8 +17,8 @@ def test_single_outbound_point():
 
 
 def test_provider_switch(monkeypatch):
-    # 显式置空而非 delenv：config() 无 app 上下文时回落 BaseConfig（其值在 import 时已从 settings.local 捕获），
-    # delenv 会「回落」到 settings.local 的真实接线 → 与 settings.local 内容耦合。空串才是「显式无覆写」。
+    # 显式置空而非 delenv：config() 无 app 上下文时回落 BaseConfig（其值在 import 时已从 .env 捕获），
+    # delenv 会「回落」到 .env 的真实接线 → 与 .env 内容耦合。空串才是「显式无覆写」。
     monkeypatch.setenv('LLM_BASE_URL', '')
     for provider, url in [('proxy', 'http://localhost:4000'),
                           ('official', llm.config('DEEPSEEK_BASE_URL')),
@@ -188,7 +188,7 @@ def test_top_level_reasoning_rejected_and_logged(monkeypatch, usage):
 def test_proxy_provider_without_key_warns_at_boot(tmp_path):
     """UP-012 接线自检：provider=proxy 但 LLM_API_KEY 为空 → 启动必须 WARNING。
 
-    背景（2026-10-11）：settings.local 缺 LLM_* 接线时上游 401，且异常被收敛成 `job failed`（原文不入日志），
+    背景（2026-10-11）：.env 缺 LLM_* 接线时上游 401，且异常被收敛成 `job failed`（原文不入日志），
     真跑现场极难定位。此断言把「静默失败」变成「启动即出声」。
     """
     import subprocess
