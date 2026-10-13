@@ -13,7 +13,7 @@ from scripts import ingest_kb  # noqa: E402
 def _seed(tmp_path, n_cards=5, book="全书"):
     """建 1 学科 / 1 书 / 2 章 / 1 概念 / n_cards 张卡（初始 new）。"""
     con = ingest_kb.connect(str(tmp_path / "u.sqlite3"))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('心理学','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('合成示例书12','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,subject_id,title,slug,status,created_at) VALUES(1,1,'书','book','active','t')")
     con.execute("INSERT INTO chapters(book_id,name,order_no,anchor,status) VALUES(1,'第1章',1,'第1章','locked')")
     con.execute("INSERT INTO chapters(book_id,name,order_no,anchor,status) VALUES(1,'第2章',2,'第2章','locked')")
@@ -118,7 +118,7 @@ def test_stats_and_missing_chapter(tmp_path):
 def _seed_two_books(tmp_path, ch1_cards=5):
     """1 学科 / 2 书 / 每书 2 章；两书各 1 概念 + ch1_cards 张卡（初始 new）。"""
     con = ingest_kb.connect(str(tmp_path / "two.sqlite3"))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('心理学','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('合成示例书12','demo',0,'t')")
     for bid, title in ((1, "书A"), (2, "书B")):
         con.execute("INSERT INTO books(owner_id,id,subject_id,title,slug,status,created_at) VALUES(1,?,1,?,?,'active','t')", (bid, title, title))
         con.execute("INSERT INTO chapters(book_id,name,order_no,anchor,status)"

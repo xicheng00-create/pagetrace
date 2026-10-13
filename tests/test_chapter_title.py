@@ -8,7 +8,7 @@ from scripts import ingest_kb  # noqa: E402
 
 
 def _row(uid, chapter="ch-L001", **extra):
-    return {"contract": 1, "concept_id": uid, "subject": "creator", "book": "合成示例书4",
+    return {"contract": 1, "concept_id": uid, "subject": "creator", "book": "合成示例书5",
             "chapter": chapter, "title": uid, "question": f"{uid}是什么？",
             "answer_points": [f"{uid}答案"], **extra}
 
@@ -34,8 +34,8 @@ def test_chapter_title_and_missing_title_idempotent(tmp_path):
     before = _snapshot(con)
     assert before == ([("ch-L001", "ch-L001 · 自助不等于自我提升"),
                        ("ch-L002", "ch-L002")],
-                      [("合成示例书4/ch-L001 · 自助不等于自我提升",),
-                       ("合成示例书4/ch-L002",)])
+                      [("合成示例书5/ch-L001 · 自助不等于自我提升",),
+                       ("合成示例书5/ch-L002",)])
     second = ingest_kb.ingest_file(con, path)
     assert first["new"] == 2 and second["new"] == 0 and second["skipped"] == 2
     assert _snapshot(con) == before
@@ -54,7 +54,7 @@ def test_existing_manual_name_and_source_preserved_then_refreshed(tmp_path):
     again = ingest_kb.ingest_file(con, path)
     assert (again["new"], again["skipped"]) == (0, 1)
     assert _snapshot(con) == ([("ch-L001", "ch-L001 · 自助不等于自我提升")],
-                              [("合成示例书4/ch-L001 · 自助不等于自我提升",)])
+                              [("合成示例书5/ch-L001 · 自助不等于自我提升",)])
     con.close()
 
 
@@ -79,5 +79,5 @@ def test_title_updates_existing_chapter_and_card_source_with_pages(tmp_path):
     stats = ingest_kb.ingest_file(con, path)
     assert (stats["new"], stats["skipped"]) == (0, 1)
     assert _snapshot(con) == ([("ch-L001", "ch-L001 · 新章标题")],
-                              [("合成示例书4/ch-L001 · 新章标题/12,13",)])
+                              [("合成示例书5/ch-L001 · 新章标题/12,13",)])
     con.close()

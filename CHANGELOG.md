@@ -81,7 +81,7 @@
 - UP-008 两任务并发实测与去锁反证，worker 日志不含正文。
 - UP-009 上传提交/后端可用性/轮询；副本临时实例注入 stub provider，浏览器 PDF→进度→保留删除→.primary 确认→卡池正向验收通过。
 - UP-005 首次真跑失败（根因 = 接线缺失，见下），**pm 复验已通过**：同一 PDF 连上两次 → 第二次 `reused=true`、LLM 账本 +0 行、`books 1→1`、`reasoning_tokens=0`；证据 `reports/r4-logs/up005-real-pm-rerun.log`（首跑失败原文保留在 `up005-real.log`，不覆盖）。
-- **缺陷修复（LLM 接线自检，pm 补）**：本机 `settings.local` 原先**没有**任何 `LLM_*` 接线 → config 默认 `provider=proxy` + 空 `LLM_API_KEY` → 本地 LiteLLM 返回 **401** → 出卡必失败（异常被收敛成 `job failed`，真跑现场几乎不可查）。修：`settings.local` 补 `LLM_PROVIDER/LLM_BASE_URL/LLM_MODEL/LLM_API_KEY`（备份 `settings.local.bak-20261011-230632`，`settings.local` 不入库）；`proxy` 档缺 key → `create_app` 启动 WARNING（`backend/app.py`）；`settings.local.example` 补模板（占位不含真密钥）。断言 `tests/test_llm.py::test_proxy_provider_without_key_warns_at_boot`；口径 `DESIGN_SPEC §11 UP-012 接线口径` + `§12 [0.15.5]`。
+- **缺陷修复（LLM 接线自检，pm 补）**：本机 `settings.local` 原先**没有**任何 `LLM_*` 接线 → config 默认 `provider=proxy` + 空 `LLM_API_KEY` → 本地 LiteLLM 返回 **401** → 出卡必失败（异常被收敛成 `job failed`，真跑现场几乎不可查）。修：`settings.local` 补 `LLM_PROVIDER/LLM_BASE_URL/LLM_MODEL/LLM_API_KEY`（备份 `.env.bak-20261011-230632`，`settings.local` 不入库）；`proxy` 档缺 key → `create_app` 启动 WARNING（`backend/app.py`）；`.env.example` 补模板（占位不含真密钥）。断言 `tests/test_llm.py::test_proxy_provider_without_key_warns_at_boot`；口径 `DESIGN_SPEC §11 UP-012 接线口径` + `§12 [0.15.5]`。
 - 同步后端与前端版本 0.15.5；未改复习/出题/掌握度/连胜口径，未写生产库。详见 reports/S1-round4.md。
 
 ## [0.15.4] - 2026-10-11 · S1 三轮收口
@@ -156,7 +156,7 @@
 - **QUIZ-012（新，🔒 口径）出题题型必须逐字兑现 + 干扰项不得取「纯名词标签」**（owner 报障：出题自测里两个选项竟是「了解」「关心」）。
   根因两条，都在出题服务：① `_system_prompt` 的 JSON 骨架写死 `{"type":"bool",…}`、规则只讲判断题 → LLM 照抄样例，
   要选择题也返 `type=bool`，被 `_validate` 拒收 → **2026-09-27 起 28 道选择题全部降级**为机械题（AI 选择题最后出现在 09-28）；
-  ② 机械降级取 `chapter_point_pool()[:2]` → 池按卡序，第 1 章首卡是「亲密关系」概念卡（背面 6 条纯名词标签
+  ② 机械降级取 `chapter_point_pool()[:2]` → 池按卡序，第 1 章首卡是「合成示例书1」概念卡（背面 6 条纯名词标签
   `了解（knowledge）`/`关心（care）`/…）→ **全章每题干扰项恒为那两条**。
 - 修复：提示词改为**按题型分别给规则 + 与各卡 `want` 同型的骨架**（并明令「必须逐字照办」）；题型不符的产出记
   `logging.warning`（"题型不符"）便于事后定位；机械干扰项改 `pick_distractors()`——排除纯名词标签（`is_gloss_label`）、
@@ -184,7 +184,7 @@
   （3 张只改题面 → `changed=3 unchanged=0`，卡 id 集合不变、`learn_count`/`status`/`next_review_at` 前后相等、再跑幂等）
   + `::test_back_mode_counts_rows_without_counterpart_as_new`（上游新增行 → `new_rows=1`，不报错）
   + `::test_back_mode_rejects_when_pairing_is_not_unique`（背面撞车 → 非零退出且库零改动）。
-- 《合成示例书2》按修复后的契约重出（328 行 → 598 行）后换版入库：账见 `reports/ingest-2026-10-01.md`。
+- 《合成示例书1（第6版）》按修复后的契约重出（328 行 → 598 行）后换版入库：账见 `reports/ingest-2026-10-01.md`。
 - 版本 bump 到 0.13.0：`app.py` / `config.py` / `CHANGELOG` / spec 头一致；前端资产三件套
   （`sw.js` `CACHE`/`V` + `index.html` 全部 `?v=` 与静态页脚 `#ver`）一处不漏。
 
@@ -195,9 +195,9 @@
   **无需给数据源补字段**，缺的只是 app 侧「存下来 + 显示出来」这一层。
   - **落库**：`cards.title` 由 `models.migrate()` 幂等加列；`ingest_kb` 新卡 INSERT 带 title，既有行按
     `(concept_id, content_hash)` **幂等重导**回填（新增「回填」计数 + 审计列）。本次全库重导 4 本书：
-    合成示例书4 100 / 合成示例书5 508 / 合成示例书1 328 / 合成示例书3 127 = **1063 行全部回填，
+    合成示例书5 100 / 合成示例书7标准-第4版 508 / 合成示例书1-第6版 328 / 合成示例书4 127 = **1063 行全部回填，
     新增 0 / 合并 0 / 待人工 0**；复跑 **回填 0 / 跳过 1063**（幂等自证）。
-  - **显示**：`services/labels.subtitle_of()` 单点派生 `subtitle`（取 ` · ` 右段；为空或 == 概念名 → `null` 不显示，防「亲密关系 · 亲密关系」），
+  - **显示**：`services/labels.subtitle_of()` 单点派生 `subtitle`（取 ` · ` 右段；为空或 == 概念名 → `null` 不显示，防「合成示例书1 · 合成示例书1」），
     由 `/api/cards`（附带 `concept_name`）、`/api/today`、`/api/plan` 三处下发；概念页 `h1` = 概念名（不重复），
     卡面首行 = 子卡短名 → 题面 → 要点 → 页脚（四态 · 已学 n 次 · 来源）；闪卡/今日清单/计划出处行 = `书 · 章 · 概念[ · 子卡短名]`；前端零 split。
   - **实测**：1063 张卡 title 全落库（NULL = 0），其中 **916 张有可见短名**、147 张不显示
@@ -211,7 +211,7 @@
   （`sw.js` `CACHE`/`V` + `index.html` 全部 `?v=` 与静态页脚 `#ver`）。
 
 ## [0.11.1] - 2026-09-30
-- creator 学科入库（CARD-001 / DATA-006）：`exports/creator/合成示例书4.jsonl`（97 行 / 28 概念 / 22 章）
+- creator 学科入库（CARD-001 / DATA-006）：`exports/creator/合成示例书5.jsonl`（97 行 / 28 概念 / 22 章）
   四段账 **新增 97 · 合并 0 · 丢弃 0 · 待人工 0**，复跑幂等（新增 0 / 跳过 97）；
   `config.SUBJECT_LABELS` 补 `"creator": "创作者经济"`（单点映射，显示名写入库内 `subjects.name`）。
 - MAST-004（修订）：`make ui-audit ⑬` 首页学科块环心/星旁断言补 **na 分支** —— 无已学卡
@@ -272,7 +272,7 @@
 - 解锁门槛统一使用章级 `level_mastery`，并按卡数缩小已学门槛，修复小章死锁。
 - STREAK-004：当日达标快照 `met` 单调不可撤销，当前任务完成态仍实时返回。
 - CARD-006：入库仅对 front 归一且 back 完全相同的卡做批内去重，相似卡全部保留。
-- 《合成示例书5》重出卡入库：旧 49 张（每页 1 张，答案均约 810 字、最长 1530）→ 508 张（一考点一卡，答案 7–149 字、均 77 字；原 460 条要点逐字保留）；删旧换新：删 49 张卡 + 9 条调度记录（删前备份 `backups/review-2026-09-28-224843-pre-mgmt-resplit.sqlite3`），入库实测 `新增 508 / 合并 0 / 跳过 0 / 待人工 0`。
+- 《合成示例书7标准-第4版》重出卡入库：旧 49 张（每页 1 张，答案均约 810 字、最长 1530）→ 508 张（一考点一卡，答案 7–149 字、均 77 字；原 460 条要点逐字保留）；删旧换新：删 49 张卡 + 9 条调度记录（删前备份 `backups/review-2026-09-28-224843-pre-mgmt-resplit.sqlite3`），入库实测 `新增 508 / 合并 0 / 跳过 0 / 待人工 0`。
 - 门禁：修 `make ui-audit` ⑰ 的等待竞态与布尔类型比较错误；恢复逐张解析卡断言。
 
 ## [0.8.2] - 2026-09-28
@@ -296,7 +296,7 @@
 - QUIZ-007/008：已学卡池优先出题，结果页逐题解析。
 - UNI-MASTER 收口（v0.7.0 规格）：卡级 `M = 0.5×状态分 + 0.5×作答正确率`（7 天半衰期加权），四级 rollup + 覆盖率并列；
   前端四级一律读后端 `mastery.{m,coverage,learned,cards_total,state_label}`（零自算）；四态内部值 `reviewing` 全链统一 + 迁移脚本（幂等、默认 dry-run、`--apply` 先备份）。
-- 《合成示例书3》36 → 37 卡：补原书第六部分第四条「真心赞美」漏抽页（brain 核查 → 重导 jsonl → 重新 ingest：新增 1 / 跳过 36）。
+- 《合成示例书4》36 → 37 卡：补原书第六部分第四条「真心赞美」漏抽页（brain 核查 → 重导 jsonl → 重新 ingest：新增 1 / 跳过 36）。
 - 修：LLM 降级出题必 `KeyError`（`_quiz_pool` 漏 `chapter_id`）；390px 掌握度文本横向溢出（UI-001）；
   空态文案旧题源口径；层级证据卡判定对齐 AI 学习小组（≥1 次）。
 - 断言：`make ui-audit` 新增 ⑮（双数逐字等于后端）/ ⑯（页头四叶草 + 数字 + 「连胜」）/ ⑰（真答一局 → 结果页逐题解析）；
@@ -589,7 +589,7 @@
   ingest 直接把它当显示名写库）。UI 一直忠实渲染 `subjects.name`，本次修**数据侧 + 入库侧**。
 
 ### 新增
-- **`config.SUBJECT_LABELS`**（`{"psychology": "心理学"}`）：契约只管 slug，
+- **`config.SUBJECT_LABELS`**（`{"psychology": "合成示例书12"}`）：契约只管 slug，
   **显示名由 app 侧维护**（单点、可扩展；加学科在这里补一行）。
 - **`backend/scripts/backfill_subject_labels.py`**：一次性回填既有学科显示名，幂等、
   映射未命中的行一动不动；改数据前先 `wal_checkpoint` + 落带时间戳备份到 `backups/`，跑完打印 before/after 账。
@@ -665,7 +665,7 @@
 - `tests/test_unlock.py` 追加：两本书各自解锁首章（`maybe_unlock` 行为零变化）+ 连锁仍按章序、仍受阈值约束。
 
 ### 原因
-- 真实数据（psychology 下 2 本书：合成示例书1 14 章 / 合成示例书3 6 章）暴露：学科级单一
+- 真实数据（psychology 下 2 本书：合成示例书1-第6版 14 章 / 合成示例书4 6 章）暴露：学科级单一
   「解锁到第 N 章」在仅首章解锁时恰好为 1，一旦各书进度分开就必然说谎。owner 2026-09-27 拍板按书显示。
 
 ### 说明

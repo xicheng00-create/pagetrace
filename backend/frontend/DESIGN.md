@@ -1,4 +1,4 @@
-# DESIGN.md — 个人复习app 视觉世界规格（暖纸 editorial 精修）
+# DESIGN.md — pagetrace 视觉世界规格（暖纸 editorial 精修）
 
 > **条款效力**：本文是前端视觉的**唯一基准**，与 `backend/frontend/css/app.css` 的 `:root` 一起构成设计令牌真相源。
 > **对后续一律适用** —— 任何新增页面、组件、状态都必须先满足本文，再去写代码；不合规不得提交，回归即回滚该 commit。

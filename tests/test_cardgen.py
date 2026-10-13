@@ -60,7 +60,7 @@ def test_cards_pass_existing_gate(client):
             with pytest.raises(ValueError):
                 save_drafts(con, job_id, [bad])
             assert con.execute('SELECT COUNT(*) FROM card_drafts').fetchone()[0] == 1
-        f = json.loads((Path(__file__).parent / 'fixtures/cardlen/合成示例书3.json').read_text())
+        f = json.loads((Path(__file__).parent / 'fixtures/cardlen/合成示例书4.json').read_text())
         long = {**json.loads(f['input']), 'subcards': f['names']}
         assert save_drafts(con, job_id, cardgen.gate([long])) == len(f['expected'])
 

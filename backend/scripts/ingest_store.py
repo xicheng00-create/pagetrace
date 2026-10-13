@@ -24,7 +24,7 @@ REQUIRED = ("contract", "concept_id", "subject", "book", "chapter", "title", "qu
 
 
 def resolve_db_path() -> str:
-    path = getattr(os, "environ").get("DATABASE_PATH")
+    path = os.environ.get("DATABASE_PATH")
     if path:
         return path
     uri = getattr(BaseConfig, "SQLALCHEMY_DATABASE_URI", "sqlite:///data-local/review.sqlite3")

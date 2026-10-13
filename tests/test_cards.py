@@ -91,7 +91,7 @@ def test_cards_carry_title_and_subtitle(client):
 
 
 def test_unsplit_card_subtitle_is_none(client):
-    """未切分卡（title == 概念名）→ subtitle=None：卡面不出现「亲密关系 · 亲密关系」。"""
+    """未切分卡（title == 概念名）→ subtitle=None：卡面不出现「合成示例书1 · 合成示例书1」。"""
     data = client.get("/api/cards?concept_id=2").get_json()["data"]
     assert data["concept_name"] == "预热步骤"
     assert data["cards"][0]["title"] == "预热步骤"

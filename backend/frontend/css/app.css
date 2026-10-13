@@ -1,4 +1,4 @@
-/* 个人复习app — 暖纸 editorial 精修（v0.5.0）
+/* pagetrace — 暖纸 editorial 精修（v0.5.0）
    视觉世界规格见 backend/frontend/DESIGN.md —— 对后续一律适用。
    铁律：禁横向滑动（UI-001）；不可用控件常显 + 置灰 + 写明原因（UI-003）；
    不引框架/依赖（UI-004）；一屏只有一个主行动；结构靠 1px hairline + 留白，禁嵌套卡片。 */

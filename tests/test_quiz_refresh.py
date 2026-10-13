@@ -18,7 +18,7 @@ def _seed_con(tmp_path, monkeypatch):
     """2 卡 2 题：卡1 中文卡却挂着 True/False；卡2 英文卡却挂着汉字题面（都是脏题）。"""
     monkeypatch.setattr(quizgen, "_chat", lambda _m: None)   # 机械派生，不触网
     con = ingest_store.connect(str(tmp_path / "r.sqlite3"))
-    con.execute("INSERT INTO subjects(id,name,slug,order_no,created_at) VALUES(1,'psy','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(id,name,slug,order_no,created_at) VALUES(1,'psy','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,id,subject_id,title,slug,status,created_at) VALUES(1,1,1,'b','book','active','t')")
     con.execute("INSERT INTO chapters(id,book_id,name,order_no,anchor,status,unlocked_at) VALUES(1,1,'ch',1,'ch','unlocked','t')")
     con.execute("INSERT INTO concepts(id,concept_uid,chapter_id,name) VALUES(1,'c1',1,'概念A')")
@@ -71,7 +71,7 @@ def test_refresh_regen_in_place_preserves_attempts(tmp_path, monkeypatch):
 def _seed_fallback_choice(tmp_path):
     """1 章 2 卡 + 1 道 source='fallback' 的选择题（选项里混着「了解（knowledge）」这类纯标签）。"""
     con = ingest_store.connect(str(tmp_path / "fb.sqlite3"))
-    con.execute("INSERT INTO subjects(id,name,slug,order_no,created_at) VALUES(1,'psy','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(id,name,slug,order_no,created_at) VALUES(1,'psy','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,id,subject_id,title,slug,status,created_at) VALUES(1,1,1,'b','book','active','t')")
     con.execute("INSERT INTO chapters(id,book_id,name,order_no,anchor,status,unlocked_at)"
                 " VALUES(1,1,'ch',1,'ch','unlocked','t')")

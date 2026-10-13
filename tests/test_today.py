@@ -16,7 +16,7 @@ from scripts import ingest_kb  # noqa: E402
 def _seed(tmp_path, unlocked=(1,), ch1_cards=3, ch2_cards=2):
     """1 学科 / 1 书 / 2 章；按 unlocked 决定章是否解锁。"""
     con = ingest_kb.connect(str(tmp_path / "q.sqlite3"))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,subject_id,title,slug,status,created_at) VALUES(1,1,'书','book','active','t')")
     con.execute("INSERT INTO chapters(book_id,name,order_no,anchor,status,unlocked_at)"
                 " VALUES(1,'第1章',1,'第1章','unlocked','t')")

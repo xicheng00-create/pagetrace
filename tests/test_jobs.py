@@ -181,7 +181,7 @@ def test_subprocess_restart_after_llm_before_cache(client, tmp_path):
     probe = Path(__file__).with_name('job_restart_process.py')
 
     def launch(mode, db, uploads):
-        env = dict(getattr(os, "environ"), DATABASE_PATH=str(db), UPLOAD_ROOT=str(uploads),
+        env = dict(os.environ, DATABASE_PATH=str(db), UPLOAD_ROOT=str(uploads),
                    UPLOAD_WORKER_ENABLED='0', REVIEW_ISOLATED_RUN='1')
         return subprocess.Popen([sys.executable, str(probe), str(uploads), mode, str(job_id)], env=env)
 
@@ -406,7 +406,7 @@ def test_round14_block_isolation_retry_and_visibility(client, monkeypatch, caplo
         job_hash = get_job(get_db(), job_id, user_id=1)['book_hash']
     blocks = [{'text': str(i), 'text_sha256': hashlib.sha256(str(i).encode()).hexdigest(),
                'book_hash': job_hash, 'chapter': '章'} for i in range(3)]
-    original_retries = getattr(os, "environ").get('UPLOAD_BLOCK_RETRIES')
+    original_retries = os.environ.get('UPLOAD_BLOCK_RETRIES')
     caplog.set_level(logging.ERROR, logger='services.worker')
     try:
         for retries in (0, 2):
@@ -429,7 +429,7 @@ def test_round14_block_isolation_retry_and_visibility(client, monkeypatch, caplo
                         raise llm.LLMError('PRIVATE BODY')
                     return json.dumps([{**valid, 'question': f'考点：草稿{text}', 'concept_id': f'r14-{text}'}], ensure_ascii=False)
                 monkeypatch.setattr(llm, 'complete_block', provider)
-                getattr(os, "environ")['UPLOAD_BLOCK_RETRIES'] = str(retries)
+                os.environ['UPLOAD_BLOCK_RETRIES'] = str(retries)
                 worker.run_job(con, job_id, str(root), user_id=1)
                 result = get_job(con, job_id, user_id=1)
                 assert result['status'] == 'ready'
@@ -472,9 +472,9 @@ def test_round14_block_isolation_retry_and_visibility(client, monkeypatch, caplo
             assert 'PRIVATE BODY' not in caplog.text
     finally:
         if original_retries is None:
-            getattr(os, "environ").pop('UPLOAD_BLOCK_RETRIES', None)
+            os.environ.pop('UPLOAD_BLOCK_RETRIES', None)
         else:
-            getattr(os, "environ")['UPLOAD_BLOCK_RETRIES'] = original_retries
+            os.environ['UPLOAD_BLOCK_RETRIES'] = original_retries
 def test_round14_parse_failure_is_classified_parse(client, monkeypatch, caplog):
     """A real oversized source paragraph is reported as parsing, never provider."""
     import logging

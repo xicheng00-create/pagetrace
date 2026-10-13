@@ -61,7 +61,7 @@ def _cfg(key: str, default=None):
         return current_app.config.get(key, default)
     import os
 
-    return getattr(os, "environ").get(key, default)
+    return os.environ.get(key, default)
 
 
 # —— LLM（QUIZ-002：仅生成草稿题；判分绝不走此处） ——

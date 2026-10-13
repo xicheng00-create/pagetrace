@@ -24,7 +24,7 @@ from scripts import backfill_subject_labels as backfill_cli  # noqa: E402
 from scripts import ingest_kb  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-LABEL = BaseConfig.SUBJECT_LABELS["psychology"]  # 心理学
+LABEL = BaseConfig.SUBJECT_LABELS["demo"]  # 合成示例书12
 
 
 def _con(tmp_path, name="t.sqlite3"):
@@ -36,14 +36,14 @@ def _names(con):
 
 
 def test_mapping_and_label_lookup():
-    assert subject_label("psychology") == LABEL
+    assert subject_label("demo") == LABEL
     assert subject_label("nope") is None  # 未映射 → None（由调用方回落 + warning）
 
 
 def test_new_subject_uses_label_not_slug(tmp_path):
     con = _con(tmp_path)
     ingest_kb.ingest_file(con, FIXTURES / "cards-contract-1.jsonl")
-    assert _names(con) == {"psychology": LABEL}
+    assert _names(con) == {"demo": LABEL}
     con.close()
 
 
@@ -53,7 +53,7 @@ def test_reingest_keeps_label(tmp_path):
     ingest_kb.ingest_file(con, FIXTURES / "cards-contract-1.jsonl")
     second = ingest_kb.ingest_file(con, FIXTURES / "cards-contract-1.jsonl")
     assert second["new"] == 0 and second["skipped"] == 3
-    assert _names(con) == {"psychology": LABEL}
+    assert _names(con) == {"demo": LABEL}
     con.close()
 
 
@@ -61,10 +61,10 @@ def test_reingest_does_not_overwrite_manual_name(tmp_path):
     """反向断言①b：既有学科的 name 一律不碰 —— 手工改过的值也不许被 ingest 冲掉。"""
     con = _con(tmp_path)
     ingest_kb.ingest_file(con, FIXTURES / "cards-contract-1.jsonl")
-    con.execute("UPDATE subjects SET name='我改的名字' WHERE slug='psychology'")
+    con.execute("UPDATE subjects SET name='我改的名字' WHERE slug='demo'")
     con.commit()
     ingest_kb.ingest_file(con, FIXTURES / "cards-contract-1.jsonl")
-    assert _names(con) == {"psychology": "我改的名字"}
+    assert _names(con) == {"demo": "我改的名字"}
     con.close()
 
 
@@ -104,7 +104,7 @@ def test_api_subjects_name_differs_from_slug(tmp_path, monkeypatch):
     app.config["TESTING"] = True
     with app.test_client() as c:
         subs = c.get("/api/subjects").get_json()["data"]["subjects"]
-    assert [s["slug"] for s in subs] == ["psychology"]
+    assert [s["slug"] for s in subs] == ["demo"]
     assert [s["name"] for s in subs] == [LABEL]
     assert subs[0]["name"] != subs[0]["slug"], "name == slug 即显示名未生效"
 
@@ -113,18 +113,18 @@ def test_backfill_updates_only_mapped_and_is_idempotent(tmp_path):
     """反向断言④：回填只动映射命中的行，未命中的一动不动；第二次跑变更 0 行。"""
     con = _con(tmp_path)
     con.execute("INSERT INTO subjects(name,slug,order_no,created_at)"
-                " VALUES('psychology','psychology',0,'t')")          # 命中，需回填
+                " VALUES('demo','demo',0,'t')")          # 命中，需回填
     con.execute("INSERT INTO subjects(name,slug,order_no,created_at)"
                 " VALUES('哲学','philosophy',1,'t')")                # 未命中，name 不动
     con.commit()
     rows = backfill_subject_labels(con)
     con.commit()
-    assert _names(con) == {"psychology": LABEL, "philosophy": "哲学"}
+    assert _names(con) == {"demo": LABEL, "philosophy": "哲学"}
     assert sum(1 for r in rows if r["changed"]) == 1
     # 幂等：再跑一次，零变更
     again = backfill_subject_labels(con)
     assert sum(1 for r in again if r["changed"]) == 0
-    assert _names(con) == {"psychology": LABEL, "philosophy": "哲学"}
+    assert _names(con) == {"demo": LABEL, "philosophy": "哲学"}
     con.close()
 
 
@@ -132,13 +132,13 @@ def test_backfill_cli_dry_run_writes_nothing(tmp_path, capsys):
     db = tmp_path / "dry.sqlite3"
     con = connect(str(db))
     ingest_kb.ingest_file(con, FIXTURES / "cards-contract-1.jsonl")
-    con.execute("UPDATE subjects SET name='psychology' WHERE slug='psychology'")
+    con.execute("UPDATE subjects SET name='demo' WHERE slug='demo'")
     con.commit()
     con.close()
     assert backfill_cli.main(["--db", str(db), "--dry-run"]) == 0
     assert "dry-run" in capsys.readouterr().out
     con = connect(str(db))
-    assert _names(con) == {"psychology": "psychology"}  # 未写库
+    assert _names(con) == {"demo": "demo"}  # 未写库
     con.close()
 
 
@@ -147,7 +147,7 @@ def test_backfill_cli_backs_up_then_updates(tmp_path, monkeypatch, capsys):
     db = tmp_path / "real.sqlite3"
     con = connect(str(db))
     ingest_kb.ingest_file(con, FIXTURES / "cards-contract-1.jsonl")
-    con.execute("UPDATE subjects SET name='psychology' WHERE slug='psychology'")
+    con.execute("UPDATE subjects SET name='demo' WHERE slug='demo'")
     con.commit()
     con.close()
     monkeypatch.setattr(backfill_cli, "REPO_ROOT", tmp_path)
@@ -155,9 +155,9 @@ def test_backfill_cli_backs_up_then_updates(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     backups = list((tmp_path / "backups").glob("review-*-pre-subject-labels.sqlite3"))
     assert len(backups) == 1, "必须落一份带时间戳的备份"
-    assert "备份：" in out and "psychology" in out and LABEL in out
+    assert "备份：" in out and "demo" in out and LABEL in out
     con = connect(str(db))
-    assert _names(con) == {"psychology": LABEL}
+    assert _names(con) == {"demo": LABEL}
     con.close()
 
 
@@ -166,7 +166,7 @@ def test_backfill_cli_missing_db(tmp_path, capsys):
     assert "无库文件" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("slug", ["psychology"])
+@pytest.mark.parametrize("slug", ["demo"])
 def test_label_map_is_str_to_str(slug):
     labels = BaseConfig.SUBJECT_LABELS
     assert isinstance(labels, dict) and labels

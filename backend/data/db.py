@@ -14,7 +14,7 @@ from data import models
 
 def _db_path() -> str:
     """优先读环境变量 DATABASE_PATH（测试用临时库），否则用 config 的 URI。"""
-    path = getattr(os, "environ").get("DATABASE_PATH") or current_app.config.get("DATABASE_PATH")
+    path = os.environ.get("DATABASE_PATH") or current_app.config.get("DATABASE_PATH")
     if path:
         return _normalize_path(path)
     uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
@@ -45,8 +45,8 @@ def isolated_run() -> bool:
     只有这些场景才启用「拒绝生产库」与 ATTACH 禁令；**生产运行必须能连生产库启动**，
     否则一次重启即全站 500（2026-10-12 实测：无条件调用会让 FLASK_ENV=production 启动即抛）。
     """
-    return (getattr(os, "environ").get("REVIEW_ISOLATED_RUN") == "1"
-            or bool(getattr(os, "environ").get("PYTEST_CURRENT_TEST"))
+    return (os.environ.get("REVIEW_ISOLATED_RUN") == "1"
+            or bool(os.environ.get("PYTEST_CURRENT_TEST"))
             or bool(getattr(current_app, "testing", False)))
 
 
@@ -64,7 +64,7 @@ def reject_production_path():
     same = os.path.realpath(path) == os.path.realpath(production)
     if os.path.exists(path) and os.path.exists(production):
         same = same or os.path.samefile(path, production)
-    if same and getattr(os, "environ").get("ALLOW_PRODUCTION_DB") != "1":
+    if same and os.environ.get("ALLOW_PRODUCTION_DB") != "1":
         raise RuntimeError("isolated run refuses production database")
 
 

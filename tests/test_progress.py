@@ -21,7 +21,7 @@ from scripts import ingest_kb  # noqa: E402
 def _seed_two_books(db_path):
     """1 学科 / 2 书（各 3 章）/ 2 概念 / 7 张卡；两书各只解锁第 1 章。"""
     con = ingest_kb.connect(str(db_path))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('心理学','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('合成示例书12','demo',0,'t')")
     for bid, title, n in ((1, "书A", 4), (2, "书B", 3)):
         con.execute("INSERT INTO books(owner_id,id,subject_id,title,slug,status,created_at) VALUES(1,?,1,?,?,'active','t')", (bid, title, title))
         for k in range(1, 4):
@@ -98,7 +98,7 @@ def test_subject_payload_keys(client):
 def _seed_five_cards_four_mastered(db_path):
     """1 学科 / 1 书 / 1 章 / 1 概念 / 5 卡（4 mastered + 1 review）。"""
     con = ingest_kb.connect(str(db_path))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('心理学','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('合成示例书12','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,id,subject_id,title,slug,status,created_at) VALUES(1,1,1,'书A','book-a','active','t')")
     con.execute("INSERT INTO chapters(id,book_id,name,order_no,anchor,status,unlocked_at)"
                 " VALUES(1,1,'第1章',1,'第1章','unlocked','t')")
@@ -141,7 +141,7 @@ def test_chapter_mastery_zero_denominator_not_started(tmp_path, monkeypatch):
     db = tmp_path / "mast0.sqlite3"
     monkeypatch.setenv("DATABASE_PATH", str(db))
     con = ingest_kb.connect(str(db))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('心理学','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('合成示例书12','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,id,subject_id,title,slug,status,created_at) VALUES(1,1,1,'书A','book-a','active','t')")
     con.execute("INSERT INTO chapters(id,book_id,name,order_no,anchor,status,unlocked_at)"
                 " VALUES(1,1,'第1章',1,'第1章','unlocked','t')")

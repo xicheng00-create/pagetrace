@@ -14,7 +14,7 @@ from scripts import ingest_kb  # noqa: E402
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "cards-contract-1.jsonl"
 # DATA-006：学科在 UI/接口里的显示名来自 config.SUBJECT_LABELS（契约只给 slug）
-SUBJECT_LABEL = BaseConfig.SUBJECT_LABELS["psychology"]
+SUBJECT_LABEL = BaseConfig.SUBJECT_LABELS["demo"]
 
 
 @pytest.fixture()
@@ -39,7 +39,7 @@ def _d(client, url):
 def test_subjects_metrics(client):
     d = _d(client, "/api/subjects")
     s = d["subjects"][0]
-    assert s["slug"] == "psychology" and s["unlearned"] == 3
+    assert s["slug"] == "demo" and s["unlearned"] == 3
     assert s["mastered"] == 0 and s["due"] == 0
     # 0.4.1（DATA-005）：学科级只给汇总，不再有单一「解锁到第几章」
     assert "unlocked_upto" not in s
@@ -88,7 +88,7 @@ def test_today_due_queue_and_review(client):
     d = _d(client, "/api/today")
     assert d["due"] == [] and len(d["new"]) == 2 and d["count"] == 2
     # DATA-006：队列里的 `subject` 是**显示名**（库内 subjects.name），不再是 slug。
-    # 原断言写死 "psychology" = 把当时的显示名缺陷固化成了期望值，故随 0.5.1 一并纠正。
+    # 原断言写死 "demo" = 把当时的显示名缺陷固化成了期望值，故随 0.5.1 一并纠正。
     assert d["new"][0]["status"] == "new" and d["new"][0]["subject"] == SUBJECT_LABEL
     # 造一张到期卡 → 到期优先
     with client.application.app_context():

@@ -13,7 +13,7 @@ from scripts import ingest_kb  # noqa: E402
 def _seed(tmp_path):
     """1 学科 / 2 书 / 每书 1 章；书A = 3 new + 1 learning，书B = 2 new + 1 learning。"""
     con = ingest_kb.connect(str(tmp_path / "scope.sqlite3"))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,subject_id,title,slug,status,created_at) VALUES(1,1,'书A','a','active','t')")
     con.execute("INSERT INTO books(owner_id,subject_id,title,slug,status,created_at) VALUES(1,1,'书B','b','active','t')")
     con.execute("INSERT INTO chapters(book_id,name,order_no,anchor,status,unlocked_at)"
@@ -134,7 +134,7 @@ def test_scope_api_validation(tmp_path, monkeypatch):
     db = tmp_path / "api.sqlite3"
     monkeypatch.setenv("DATABASE_PATH", str(db))
     con = ingest_kb.connect(str(db))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,subject_id,title,slug,status,created_at) VALUES(1,1,'书','book','active','t')")
     con.commit()
     con.close()
@@ -167,7 +167,7 @@ def test_scope_rejects_empty_scope(tmp_path, monkeypatch):
     db = tmp_path / "reject.sqlite3"
     monkeypatch.setenv("DATABASE_PATH", str(db))
     con = ingest_kb.connect(str(db))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,subject_id,title,slug,status,created_at) VALUES(1,1,'书','book','active','t')")
     con.commit()
     con.close()
@@ -196,7 +196,7 @@ def test_scope_normalizes_empty_on_read(tmp_path, monkeypatch):
     db = tmp_path / "normalize.sqlite3"
     monkeypatch.setenv("DATABASE_PATH", str(db))
     con = ingest_kb.connect(str(db))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,subject_id,title,slug,status,created_at) VALUES(1,1,'书','book','active','t')")
     con.commit()
     con.close()
@@ -225,7 +225,7 @@ def test_scope_migration_deletes_empty_pref(tmp_path):
     """A5：幂等迁移删除 prefs.book_scope="[]" 脏行（启动即清）。"""
     db = tmp_path / "migrate.sqlite3"
     con = ingest_kb.connect(str(db))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,subject_id,title,slug,status,created_at) VALUES(1,1,'书','book','active','t')")
     con.execute("INSERT INTO prefs(user_id,key,value) VALUES(1,'book_scope','[]')")
     con.commit()

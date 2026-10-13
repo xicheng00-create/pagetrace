@@ -59,7 +59,7 @@ def test_reasoning_rejected(monkeypatch):
         llm.complete([])
 
 
-@pytest.mark.skipif(getattr(os, "environ").get('LLM_PROVIDER') != 'local', reason='本版 local 默认不接入；零网络')
+@pytest.mark.skipif(os.environ.get('LLM_PROVIDER') != 'local', reason='本版 local 默认不接入；零网络')
 def test_local_smoke_skipped_by_default(monkeypatch):
     # 本版 smoke 只验接口与 mock，不连接任何外部机器。
     monkeypatch.setitem(sys.modules, 'requests', SimpleNamespace(post=lambda *a, **k:
@@ -188,12 +188,12 @@ def test_top_level_reasoning_rejected_and_logged(monkeypatch, usage):
 def test_proxy_provider_without_key_warns_at_boot(tmp_path):
     """UP-012 接线自检：provider=proxy 但 LLM_API_KEY 为空 → 启动必须 WARNING。
 
-    背景（2026-10-11）：settings.local 缺 LLM_* 接线时上游 401，且异常被收敛成 `job failed`（原文不入日志），
+    背景（2026-10-11）：.env 缺 LLM_* 接线时上游 401，且异常被收敛成 `job failed`（原文不入日志），
     真跑现场极难定位。此断言把「静默失败」变成「启动即出声」。
     """
     import subprocess
     repo = Path(__file__).resolve().parents[1]
-    env = {k: v for k, v in getattr(os, "environ").items() if k not in ('FLASK_ENV',)}
+    env = {k: v for k, v in os.environ.items() if k not in ('FLASK_ENV',)}
     env['LLM_PROVIDER'] = 'proxy'
     env['LLM_API_KEY'] = ''
     out = subprocess.run(

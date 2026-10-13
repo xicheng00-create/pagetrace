@@ -1,4 +1,4 @@
-"""个人复习app — 应用工厂入口。
+"""pagetrace — 应用工厂入口。
 
 职责：加载 settings.local → 建 Flask app（开发/生产同款进程模型）→ 注册蓝图 → 初始化库 →
 静态托管 backend/frontend（PWA）。生产用 waitress（单进程 4 线程）。
@@ -51,10 +51,10 @@ def create_app(env: str | None = None) -> Flask:
     )
     app.config.from_object(get_config(env))
     for key in ("DATABASE_PATH", "UPLOAD_ROOT"):
-        if key in getattr(os, "environ"):
-            app.config[key] = getattr(os, "environ")[key]
-    if "UPLOAD_WORKER_ENABLED" in getattr(os, "environ"):
-        app.config["UPLOAD_WORKER_ENABLED"] = getattr(os, "environ")["UPLOAD_WORKER_ENABLED"] == "1"
+        if key in os.environ:
+            app.config[key] = os.environ[key]
+    if "UPLOAD_WORKER_ENABLED" in os.environ:
+        app.config["UPLOAD_WORKER_ENABLED"] = os.environ["UPLOAD_WORKER_ENABLED"] == "1"
     with app.app_context():
         db_mod.reject_production_path()
     app.config["VERSION"] = version  # 唯一版本来源（版本号诚实规则见 CLAUDE.md §5）
@@ -110,7 +110,7 @@ def create_app(env: str | None = None) -> Flask:
 if __name__ == "__main__":
     from waitress import serve
 
-    _host = getattr(os, "environ").get("HOST", "127.0.0.1")
-    _port = int(getattr(os, "environ").get("PORT", "5004"))
-    print(f"[boot] 个人复习app v{version} (waitress) on {_host}:{_port}", flush=True)
+    _host = os.environ.get("HOST", "127.0.0.1")
+    _port = int(os.environ.get("PORT", "5004"))
+    print(f"[boot] pagetrace v{version} (waitress) on {_host}:{_port}", flush=True)
     serve(create_app(), host=_host, port=_port, threads=4)

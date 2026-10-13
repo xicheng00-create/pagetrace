@@ -26,7 +26,7 @@ WEEK_START = report.week_start(AT)                                    # 2026-09-
 
 def _seed(db):
     con = connect(str(db))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('心理学','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('合成示例书12','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,id,subject_id,title,slug,status,created_at) VALUES(1,1,1,'书A','book-a','active','t')")
     con.execute("INSERT INTO chapters(id,book_id,name,order_no,anchor,status,unlocked_at)"
                 " VALUES(1,1,'第一章',1,'第一章','unlocked','t')")

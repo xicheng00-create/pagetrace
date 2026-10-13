@@ -54,7 +54,7 @@ def run_job(con, job_id, root, user_id):
         advance("segmenting", 20)
         blocks = segment_book(raw["path"], job["book_hash"])["blocks"]
         advance("cardgen", 30)
-        retries = min(3, max(0, int(getattr(os, "environ").get("UPLOAD_BLOCK_RETRIES", "2"))))
+        retries = min(3, max(0, int(os.environ.get("UPLOAD_BLOCK_RETRIES", "2"))))
         failed = []
         for block in blocks:
             for attempt in range(retries + 1):

@@ -19,7 +19,7 @@ from services import report  # noqa: E402
 def _seed(db):
     """2 书 × 2 章：章 A（卡 A1/A2，错 3/1）、章 B（卡 B1，错 2）、章 C（无错题）。"""
     con = connect(str(db))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('心理学','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('合成示例书12','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,id,subject_id,title,slug,status,created_at) VALUES(1,1,1,'书A','book-a','active','t')")
     con.execute("INSERT INTO books(owner_id,id,subject_id,title,slug,status,created_at) VALUES(1,2,1,'书B','book-b','active','t')")
     chs = {1: (1, '第一章'), 2: (1, '第二章'), 3: (2, '第一章')}
@@ -56,7 +56,7 @@ def test_weak_chapters_only_with_wrongs_sorted_desc(tmp_path):
     assert [g["wrong_count"] for g in groups] == [4, 2]
     assert [g["card_count"] for g in groups] == [2, 1]
     a = groups[0]
-    assert a["book"] == "书A" and a["subject"] == "心理学"
+    assert a["book"] == "书A" and a["subject"] == "合成示例书12"
     # 章内涉及卡按错次降序
     assert [c["front"] for c in a["cards"]] == ["卡A1", "卡A2"]
     assert [c["wrong_count"] for c in a["cards"]] == [3, 1]

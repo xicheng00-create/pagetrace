@@ -22,7 +22,7 @@ class LLMConfigError(ValueError):
 def config(key, default=None):
     if has_app_context():
         return current_app.config.get(key, default)
-    return getattr(os, "environ").get(key, getattr(BaseConfig, key, default))
+    return os.environ.get(key, getattr(BaseConfig, key, default))
 
 
 def endpoint():

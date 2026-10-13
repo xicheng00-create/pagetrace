@@ -3,7 +3,7 @@
 用法：
     ingest_kb.py                      # 扫 KB_EXPORTS_DIR 下所有 jsonl
     ingest_kb.py --subject psychology # 只跑某学科目录
-    ingest_kb.py --book 合成示例书1 # 单本书（需配 --subject 定位；仅给书名则全盘搜）
+    ingest_kb.py --book 合成示例书1-第6版 # 单本书（需配 --subject 定位；仅给书名则全盘搜）
     ingest_kb.py --file path.jsonl    # 单文件（测试/定向重放）
     ingest_kb.py --dry-run            # 只校验与去重，不写库
 

@@ -1,4 +1,4 @@
-# DESIGN_SPEC — 个人复习app v0.16.2
+# DESIGN_SPEC — pagetrace v0.16.2
 
 | 项 | 值 |
 |---|---|
@@ -46,7 +46,7 @@
 
 ```
 上游（brain 拥有）                        本 app（pm 拥有）
-~/KnowledgeBase/                          ~/WorkBuddy/个人复习app/
+data-local/                          pagetrace/
   raw/books/<书>/        原文层
   concepts/*.md          蒸馏层（带 sources: 书/章/页）
   moc/MOC-<书>-*.md      结构真相（章节地图）
@@ -59,7 +59,7 @@
 
 - 技术栈沿用既有三项目契约：Flask + waitress + SQLite + 原生 JS PWA（无构建链）。
 - **分层**：`backend/{app.py, api/, data/, services/, ai/, middleware/, scripts/}`、`frontend/{index.html, js/, css/, sw.js}`、`tests/`、`deploy/`、`reports/`、`backups/`。
-- **命名与端口（🔒 已定）**：目录 `~/WorkBuddy/个人复习app`、slug `review`、端口 **5004**、域名 `example.invalid`、库 `data-local/review.sqlite3`、launchd `org.example.review` + `org.example.review`。
+- **命名与端口（🔒 已定）**：目录 `pagetrace/pagetrace`、slug `review`、端口 **5004**、域名 `example.invalid`、库 `data-local/review.sqlite3`、launchd `org.example.review` + `org.example.review`。
 - **部署面**：`~/.cloudflared/config.yml` 加一行 ingress + `cloudflared tunnel route dns`（单隧道多子域，与四口之家/学习小组平行）。
 
 ---
@@ -79,14 +79,14 @@
   - **触发点**：凡「学科级聚合字段」出现在 UI 或接口的位置。
   - **覆盖路径**：学科页 / 学科列表 / 首页学科卡片 / 书列表 / 任何通知或文案，**无旁路**。
   - **违规处置**：不得显示单一数字，改「汇总」或「按书展开」。
-  - **理由**：2026-09-27 真实数据暴露 —— psychology 下 2 本书（合成示例书1 14 章 / 合成示例书3 6 章）
+  - **理由**：2026-09-27 真实数据暴露 —— psychology 下 2 本书（合成示例书1-第6版 14 章 / 合成示例书4 6 章）
     仅首章解锁时聚合值恰好为 1；一旦 A 书到第 9 章、B 书到第 3 章，单一数字必然说谎。
 - **DATA-006（P0，🔒 口径）** **学科显示名的唯一来源 = 库内 `subjects.name`。** 上游契约只提供 slug
   （`subject` 字段），**显示名由 app 侧维护**：`config.SUBJECT_LABELS = {slug: 显示名}`（单点，加学科补一行）。
   - **入库**：新建学科若映射命中 → `subjects.name` 写映射名；未命中 → 回落写 slug，并
     `logging.warning` 一行「学科 X 无显示名映射，暂用 slug」（不静默）。
   - **绝不覆盖既有显示名**：按 slug 命中既有学科时**完全不写 `name`** —— 重导入库（幂等复跑）
-    不得把已改好的「心理学」冲回 `psychology`，也不得覆盖手工修正值。
+    不得把已改好的「合成示例书12」冲回 `psychology`，也不得覆盖手工修正值。
   - **回填**：既有数据用 `backend/scripts/backfill_subject_labels.py` 一次性按映射更新（幂等；
     映射里没有的行一动不动）；改数据前先 `wal_checkpoint` + 落带时间戳备份，跑完打印 before/after。
   - **UI 不新增映射**：所有展示处统一读 `subjects.name`，**禁止**在前端另存一份 slug→显示名（双份真源 = 旁路）。
@@ -160,7 +160,7 @@
 - **SCHED-001（P0，🔒 口径）** 解锁规则：**本章掌握度 ≥ 80%**（`mastered / (已学)`，已学 ≥ 5 张才判定）**且本章到期复习 = 0** → 解锁下一章；**新书入库即解锁其第 1 章**（否则新书永远打不开）。
 - **SCHED-002（P0）** 解锁是**单向的**：不因掌握度回落而重新上锁；解锁时间记入 `unlocked_at`（可看「解锁树」历史）。
 - **SCHED-003（P0，🔒 禁令）** **不得实现任何配额/强制轮转/保底张数**（owner 2026-09-26：当天想学哪科就哪科）。
-- **SCHED-004（P1）** 进度只能靠**信息**不能靠强制：每科显示「到期积压数」与「距上次触碰天数」（如「心理学 · 12 天没动」）。
+- **SCHED-004（P1）** 进度只能靠**信息**不能靠强制：每科显示「到期积压数」与「距上次触碰天数」（如「合成示例书12 · 12 天没动」）。
 - **SCHED-005（P1）** 掌握度阈值（80% / 已学 ≥ 5）是本 spec 的**可调参数**，必须单点配置化，不得散落硬编码。
 
 > **SCHED-006（P0，🔒 口径 · v0.8.3 · owner 2026-09-28 拍板「改用界面同一口径」）** **解锁门槛的「掌握度」= 界面展示的章级掌握度（MAST-006 同一入口）+ 修小章死锁**：
@@ -288,7 +288,7 @@
 
 - **UI-019（P0，🔒 口径 · v0.12.0 · owner 2026-09-30 拍板「卡面显示子卡短名」）** **卡面 = 来源 + 子卡短名 + 题面 + 要点；概念名不得被挤掉**：
   - **短名定义**：`subtitle` = `cards.title` 里「` · `」**之后最后一段**；无分隔符 → 整条 title 即子卡标题；
-    结果为空**或等于概念名**（未切分卡 `title = 概念名`）→ **`null`：不显示**（禁「亲密关系 · 亲密关系」式重复）。
+    结果为空**或等于概念名**（未切分卡 `title = 概念名`）→ **`null`：不显示**（禁「合成示例书1 · 合成示例书1」式重复）。
   - **后端下发、前端零推导**：`subtitle` 由 `services/labels.subtitle_of()` **单点**算（`/api/cards`、`/api/today`、`/api/plan`
     都带该字段）；`js/*` **不得** `split(' · ')`、不得引用 `title` 自行切分。
   - **版式（卡面四要素）**：概念页 `#/concept/<id>` —— `h1` = **概念名**（仍可用、只出现一次），
@@ -733,7 +733,7 @@
 - **STREAK-004（P0，🔒 口径 · v0.8.3）** **当日达标单调不可撤销**：当日行 upsert 时 `met = max(旧 met, 当前 done)`，
   `target` / `review_done` / `quiz_done` 用**当前值覆盖**；`days` 的连续性用快照 `met`，而 `today_met` 仍返回**当前** `done`
   （与 `/api/task.done` 同源，同帧必须一致，允许同时为 `false`）。
-  - **理由（实测场景）**：内容重入库（例：2026-09-28 项目组合管理重出卡，删掉 9 张旧卡）会让「当日已复习」从 28 掉到 19；
+  - **理由（实测场景）**：内容重入库（例：2026-09-28 合成示例书7重出卡，删掉 9 张旧卡）会让「当日已复习」从 28 掉到 19；
     若按当前值覆盖，**当天已挣到的达标会被追溯抹掉**、连胜断掉。同理重复提交 / 复习记录被替换也不得回溯改历史。
   - **违规处置**：当日行 `met` 出现回落、或 `today_met` 与 `/api/task.done` 同帧不一致 → 回滚。
   - **机械断言**：先达标后删当日复习记录，快照 `met` 仍 1、`days` 不减；`today_met` 与 `/api/task.done` 同帧一致；`days` 计入今日快照 `met=1` 但当前 `done=false` 的当天。
@@ -868,9 +868,9 @@
 
 ## §5 上游契约 🔒（**阻塞项：冻结后才能开工 ingest**）
 
-**唯一交接口**：`~/KnowledgeBase/exports/<学科 slug>/<书 slug>.jsonl` —— 每行一个 JSON 对象 = 一个**考点单元**（不是最终卡面；app 负责成卡）。
+**唯一交接口**：`data-local/exports/<学科 slug>/<书 slug>.jsonl` —— 每行一个 JSON 对象 = 一个**考点单元**（不是最终卡面；app 负责成卡）。
 
-**生产方 = brain**（跑 `~/KnowledgeBase/scripts/export_cards.py <书>`）；**消费方 = pm**（`scripts/ingest_kb.py`）。
+**生产方 = brain**（跑 `data-local/scripts/export_cards.py <书>`）；**消费方 = pm**（`scripts/ingest_kb.py`）。
 
 | 字段 | 必填 | 说明 |
 |---|---|---|
@@ -903,7 +903,7 @@
   app 侧**逐字落库、不解析、不回填**，短名派生只发生在展示层（`services/labels.subtitle_of` → UI-019）。
 - **不许丢事实**：同一 `concept_id` 的多行合并时，正文 = 各行的并集；数字忠实度要自动校验。
 - **契约版本升级**：改字段 = 同时改 KB 侧导出脚本与本文档 `contract` 常量，**双向同步后才许跑 ingest**。
-- **覆盖路径（无旁路）**：app 只允许从 `exports/` 读入；**禁止**直接读 `~/KnowledgeBase/concepts|raw` 或 Obsidian 文件。
+- **覆盖路径（无旁路）**：app 只允许从 `exports/` 读入；**禁止**直接读 `data-local/concepts|raw` 或 Obsidian 文件。
 
 ---
 

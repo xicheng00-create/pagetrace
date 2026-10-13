@@ -57,7 +57,7 @@ def client(tmp_path, monkeypatch):
 def _seed_locked_only(db):
     """第 1 章解锁但 0 张卡；第 2 章锁定但有 3 张卡 → 两组队列都应为空。"""
     con = ingest_kb.connect(str(db))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','psychology',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('psy','demo',0,'t')")
     con.execute("INSERT INTO books(subject_id,title,slug,status,created_at,owner_id) VALUES(1,'书','book','active','t',1)")
     con.execute("INSERT INTO chapters(book_id,name,order_no,anchor,status,unlocked_at)"
                 " VALUES(1,'第1章',1,'第1章','unlocked','t')")
@@ -431,7 +431,7 @@ def test_locked_chapter_excluded(locked_client):
 
 
 def test_subject_filter(client):
-    assert _start(client, subject="psychology")["size"] == 2
+    assert _start(client, subject="demo")["size"] == 2
 
 
 def test_session_size_capped(client):

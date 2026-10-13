@@ -9,7 +9,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-OWNER = getattr(os, "environ").get("S2_OWNER_USERNAME", "owner")
+OWNER = os.environ.get("S2_OWNER_USERNAME", "owner")
 
 
 def exists(db, table):

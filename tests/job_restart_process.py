@@ -37,4 +37,4 @@ def gate(rows):
 cardgen.gate = gate
 app = create_app()
 with app.app_context():
-    worker.run_job(get_db(), job_id, getattr(os, "environ")['UPLOAD_ROOT'], user_id=1)
+    worker.run_job(get_db(), job_id, os.environ['UPLOAD_ROOT'], user_id=1)
