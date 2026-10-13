@@ -4,8 +4,8 @@
 
 ## 界面
 
-![首页：今日任务与演示学科](docs/screenshots/home.png)
-![卡片：问题、答案与原书页码](docs/screenshots/card.png)
+![首页：今日任务、演示学科与功能入口](docs/screenshots/home.png)
+![卡片复习：问题面 → 点开看答案要点，右滑记得 / 左滑忘了](docs/screenshots/card.png)
 
 截图仅含合成卡。JSONL 演示卡保留书、章、页码，没有对应 PDF；上传 PDF 的卡可以打开原文，不为演示卡提供虚假的原文链接。
 
