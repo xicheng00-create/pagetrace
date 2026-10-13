@@ -35,7 +35,7 @@ def endpoint():
 
 
 def usage_path():
-    return Path.home() / '.hermes' / 'app-usage' / 'reviewapp.jsonl'
+    return Path(__file__).resolve().parents[2] / 'data-local' / 'app-usage.jsonl'
 
 
 def reasoning_tokens(result):

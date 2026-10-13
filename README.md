@@ -19,11 +19,11 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python backend/app.py
 ```
 
-打开 http://127.0.0.1:5004 。默认仅监听本机；对外开放前请设置随机 `APP_SECRET` / `JWT_SECRET` 并自行配置 HTTPS。**PDF 出卡需要两个条件**：配置模型环境变量（`LLM_API_KEY` 等）**并**设 `UPLOAD_WORKER_ENABLED=1`（默认 `0`，即关闭）；只配置密钥而不开这个开关，上传行会显示「上传处理尚未启用」。浏览与复习演示卡不需要 API 密钥。
+打开 http://127.0.0.1:5004 。默认仅监听本机；对外开放前请设置随机 `APP_SECRET` / `JWT_SECRET` 并自行配置 HTTPS。运行数据默认都落在项目内的 `data-local/`（卡片库、上传件、用量日志），删掉这个目录就等于重置。**PDF 出卡需要两个条件**：配置模型环境变量（`LLM_API_KEY` 等）**并**设 `UPLOAD_WORKER_ENABLED=1`（默认 `0`，即关闭）；只配置密钥而不开这个开关，上传行会显示「上传处理尚未启用」。浏览与复习演示卡不需要 API 密钥。
 
 ## 模型（LLM）配置
 
-只有「上传 PDF → 生成卡片」需要模型；**浏览、复习 demo 卡、多用户与邀请码注册都不需要密钥**。仓库带一份示例配置，复制后按注释填自己的：
+只有两处会调用模型：**上传 PDF → 生成卡片**、**测验出题**。浏览、复习 demo 卡、多用户与邀请码注册都不需要密钥；测验在没有密钥时会退化为机械派生题（仍能作答，质量下降并记 warning）。仓库带一份示例配置，复制后按注释填自己的：
 
 ```sh
 cp .env.example .env    # 填 LLM_API_KEY / LLM_BASE_URL / LLM_MODEL
