@@ -6,6 +6,9 @@ __pycache__/
 .ruff_cache/
 data-local/
 reports/
+.env
+.env.local
+.env.*.local
 settings.local*
 *.log
 .DS_Store
