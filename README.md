@@ -17,7 +17,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python backend/app.py
 ```
 
-打开 http://127.0.0.1:5004 。默认仅监听本机；对外开放前请设置随机 `APP_SECRET` / `JWT_SECRET` 并自行配置 HTTPS。PDF 出卡需自行配置模型环境变量；浏览与复习演示卡不需要 API 密钥。
+打开 http://127.0.0.1:5004 。默认仅监听本机；对外开放前请设置随机 `APP_SECRET` / `JWT_SECRET` 并自行配置 HTTPS。**PDF 出卡需要两个条件**：配置模型环境变量（`LLM_API_KEY` 等）**并**设 `UPLOAD_WORKER_ENABLED=1`（默认 `0`，即关闭）；只配置密钥而不开这个开关，上传行会显示「上传处理尚未启用」。浏览与复习演示卡不需要 API 密钥。
 
 ## 首次建账号与认领
 
