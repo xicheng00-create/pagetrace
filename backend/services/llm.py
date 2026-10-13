@@ -71,7 +71,7 @@ def complete_block(text, *, feature='cardgen', **kwargs):
     return complete(messages_for(feature, text), feature=feature, **kwargs)
 
 
-def complete(messages, *, base_url=None, model=None, api_key=None, timeout=30,
+def complete(messages, *, base_url=None, model=None, api_key=None, timeout=None,
              thinking_disabled=True, feature="quiz"):
     if feature not in ("quiz", "cardgen", "dedupe"):
         raise LLMConfigError("未知 LLM feature")
@@ -80,16 +80,26 @@ def complete(messages, *, base_url=None, model=None, api_key=None, timeout=30,
             raise LLMConfigError('出卡/去重必须使用集中固定前缀')
     import requests
     url = base_url or endpoint()
+    provider = config('LLM_PROVIDER', 'proxy')
+    if timeout is None:
+        try:
+            timeout = int(config('LLM_TIMEOUT', 30) or 30)
+        except (TypeError, ValueError):
+            timeout = 30
     key = config('LLM_API_KEY', '') if api_key is None else api_key
-    if config('LLM_PROVIDER', 'proxy') == 'official' and not key:
+    if provider == 'official' and not key:
         key = config('DEEPSEEK_API_KEY', '')
-    if feature == 'quiz' and not key:
+    if feature == 'quiz' and not key and provider != 'local':
         return None
     payload = {'model': model or config('LLM_MODEL'), 'messages': messages, 'temperature': 0.4}
-    if thinking_disabled:
+    # 关思考只对懂这个字段的档位发（proxy/official）；local 档（Ollama/LM Studio/vLLM 等）不认
+    # 非标准字段，硬塞可能 400。local 档也不拒绝 reasoning_tokens：本地推理不花钱，
+    # 关不掉思考就不该因此判失败。
+    clamp_thinking = thinking_disabled and provider in ('proxy', 'official')
+    if clamp_thinking:
         # 2026-10-11 实测：经本地 LiteLLM(proxy 档) 时顶层 thinking 不生效——deepseek-flash 仍产出
         # 4059 reasoning token 触发拒绝；改用 extra_body 透传后 reasoning_tokens=null。官方档认顶层 thinking。
-        if config('LLM_PROVIDER', 'proxy') == 'proxy':
+        if provider == 'proxy':
             payload['extra_body'] = {'thinking': {'type': 'disabled'}}
         else:
             payload['thinking'] = {'type': 'disabled'}
@@ -110,6 +120,6 @@ def complete(messages, *, base_url=None, model=None, api_key=None, timeout=30,
     if failed:
         # 供应商错误可能回显书文；不得传播原始异常或正文。无 usage 的失败调用计数记 null。
         raise LLMError('LLM 调用或用量落账失败') from None
-    if thinking_disabled and reasoning_tokens(result):
+    if clamp_thinking and reasoning_tokens(result):
         raise LLMError('模型返回 reasoning_tokens > 0，拒绝采纳')
     return result['choices'][0]['message']['content']

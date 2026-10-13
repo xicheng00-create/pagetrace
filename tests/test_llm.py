@@ -200,3 +200,44 @@ def test_proxy_provider_without_key_warns_at_boot(tmp_path):
         [sys.executable, '-c', "import sys; sys.path.insert(0, 'backend'); import app; app.create_app('development')"],
         cwd=str(repo), env=env, capture_output=True, text=True, timeout=120)
     assert 'LLM_API_KEY 为空' in (out.stdout + out.stderr), out.stdout + out.stderr
+
+
+def _ok_response(reasoning=0):
+    return SimpleNamespace(raise_for_status=lambda: None, json=lambda: {
+        'choices': [{'message': {'content': 'ok'}}],
+        'usage': {'completion_tokens_details': {'reasoning_tokens': reasoning}}})
+
+
+def test_local_provider_gets_no_thinking_and_no_reasoning_reject(monkeypatch):
+    """local 档（Ollama/LM Studio/vLLM 等）不认非标准字段：不塞 thinking/extra_body；
+    本地推理不花钱且关不掉思考，不得因 reasoning_tokens>0 判失败；无密钥也要照常发起（不再提前返回 None）。"""
+    bodies = []
+    def post(url, **kwargs):
+        bodies.append(kwargs['json'])
+        return _ok_response(reasoning=9)
+    monkeypatch.setitem(sys.modules, 'requests', SimpleNamespace(post=post))
+    monkeypatch.setenv('LLM_PROVIDER', 'local')
+    monkeypatch.setenv('LLM_API_KEY', '')
+    monkeypatch.setenv('LLM_BASE_URL', 'http://localhost:11434/v1')
+    assert llm.complete([{'role': 'user', 'content': 'x'}], feature='quiz') == 'ok'
+    assert bodies[0]['model'] and 'thinking' not in bodies[0] and 'extra_body' not in bodies[0]
+    assert post  # 请求真的发出去了（无密钥也调用本地端点）
+
+
+def test_timeout_is_configurable(monkeypatch):
+    seen = []
+    def post(url, **kwargs):
+        seen.append(kwargs['timeout'])
+        return _ok_response()
+    monkeypatch.setitem(sys.modules, 'requests', SimpleNamespace(post=post))
+    monkeypatch.setenv('LLM_PROVIDER', 'local')
+    monkeypatch.setenv('LLM_API_KEY', '')
+    monkeypatch.setenv('LLM_TIMEOUT', '7')
+    assert llm.complete([{'role': 'user', 'content': 'x'}]) == 'ok'
+    assert seen[-1] == 7
+    monkeypatch.setenv('LLM_TIMEOUT', '')
+    assert llm.complete([{'role': 'user', 'content': 'x'}]) == 'ok'
+    assert seen[-1] == 30
+    monkeypatch.setenv('LLM_TIMEOUT', 'not-a-number')
+    assert llm.complete([{'role': 'user', 'content': 'x'}]) == 'ok'
+    assert seen[-1] == 30

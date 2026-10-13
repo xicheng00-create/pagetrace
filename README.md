@@ -31,6 +31,7 @@ cp .env.example .env    # 填 LLM_API_KEY / LLM_BASE_URL / LLM_MODEL
 
 - 任何 **OpenAI 兼容端点**都能接（请求 `{base_url}/chat/completions`，用 `Authorization` 请求头带密钥）：厂商官方 API、自建 LiteLLM / One-API 网关、Ollama、vLLM 等
 - `LLM_PROVIDER` 三选一：`official` 官方直连（未设 `LLM_BASE_URL` 时取 `DEEPSEEK_BASE_URL`）／`proxy` 自建网关（默认 `http://localhost:4000`）／`local` 本机模型（默认 `http://localhost:8080/v1`）
+- **想用本地模型**：`LLM_PROVIDER=local` ＋ `LLM_BASE_URL=http://localhost:11434/v1`（Ollama；LM Studio 是 `http://localhost:1234/v1`）＋ `LLM_MODEL=你的模型名`，**不必填密钥**；模型要能守住出卡的 JSON 契约（太小会卡在闸门），慢机器上把 `LLM_TIMEOUT` 调大（默认 30 秒）
 - **别忘 `UPLOAD_WORKER_ENABLED=1`**：只填密钥不开这个开关，PDF 只会排队、不会出卡
 - 对外提供服务前把 `APP_SECRET` / `JWT_SECRET` 改成随机值
 
