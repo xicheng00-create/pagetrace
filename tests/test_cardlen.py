@@ -10,7 +10,7 @@ from ai.cardlen import cut_points, split_line, split_long, split_row
 FIXTURES = list((Path(__file__).parent / 'fixtures/cardlen').glob('*.json'))
 FIXTURES = [p for p in FIXTURES if p.stem != 'provenance']
 
-# 新口径（2026-10-13，Ray 拍板方案 A）：切点只落在配对括号/引号之外，按 句末 → 分号 → 逗号
+# 新口径（2026-10-13，owner 拍板方案 A）：切点只落在配对括号/引号之外，按 句末 → 分号 → 逗号
 # 三级降级；三级都切不动 → **原样放行**（宁可这张卡长，不可让人读不通）。
 # 故「每张卡 ≤222」不是绝对断言：无可用切点时的超长卡是合规的。
 CUT_LEVELS = ('。！？…', '；', '，、:：')
