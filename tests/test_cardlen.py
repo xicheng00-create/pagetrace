@@ -5,10 +5,20 @@ from pathlib import Path
 
 import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-from ai.cardlen import split_line, split_long, split_row
+from ai.cardlen import cut_points, split_line, split_long, split_row
 
 FIXTURES = list((Path(__file__).parent / 'fixtures/cardlen').glob('*.json'))
 FIXTURES = [p for p in FIXTURES if p.stem != 'provenance']
+
+# 新口径（2026-10-13，Ray 拍板方案 A）：切点只落在配对括号/引号之外，按 句末 → 分号 → 逗号
+# 三级降级；三级都切不动 → **原样放行**（宁可这张卡长，不可让人读不通）。
+# 故「每张卡 ≤222」不是绝对断言：无可用切点时的超长卡是合规的。
+CUT_LEVELS = ('。！？…', '；', '，、:：')
+
+
+def over_cap_allowed(text, cap=222):
+    """超 cap 仅当该段在配对括号/引号外无可用切点时才合法（原样放行，禁止按 cap 硬切）。"""
+    return len(text) > cap and not cut_points(text, CUT_LEVELS)
 
 
 def samples():
@@ -19,7 +29,9 @@ def samples():
 
 def test_no_overlong_rows():
     for _, _, lines in samples():
-        assert all(sum(map(len, json.loads(l)['answer_points'])) <= 222 for l in lines)
+        for l in lines:
+            back = ''.join(json.loads(l)['answer_points'])
+            assert len(back) <= 222 or over_cap_allowed(back), back[:60]
 
 
 def test_exact_reconstruction():
@@ -68,14 +80,15 @@ def test_kb_bytes_equal():
 
 def test_punctuation_and_rejections():
     assert ''.join(split_long('甲。'*150)) == '甲。'*150
-    with pytest.raises(ValueError):
-        split_long('甲'*223)
+    # 新口径：括号/引号外无可用切点 → 原样放行（旧口径在此 raise ValueError，或按 cap 硬切造残句）
+    assert split_long('甲'*223) == ['甲'*223]
+    assert over_cap_allowed('甲'*223)
     # 命名缺失/不完整 → 确定性兜底命名，不丢整块（2026-10-11 真跑实测：模型 subcards=null 曾致整块被拒）
     row = {'title': '标题', 'question': '为什么？', 'answer_points': ['甲。'*150]}
     packed = split_long('甲。'*150)
     out = split_row(row)
     assert len(out) == len(packed)
-    assert all(len(p) <= 222 for r in out for p in r['answer_points'])
+    assert all(len(p) <= 222 or over_cap_allowed(p) for r in out for p in r['answer_points'])
     assert ''.join(p for r in out for p in r['answer_points']) == '甲。'*150
     assert all(r['title'].startswith('标题 · ') and r['question'] for r in out)
     assert len({r['title'] for r in out}) == len(out)

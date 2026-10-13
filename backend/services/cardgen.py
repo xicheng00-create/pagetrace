@@ -19,7 +19,7 @@ class CardGateError(ValueError):
     """Card output failed a validation gate."""
 
 
-PROMPT_VERSION = 'contract-1-cardlen-1'
+PROMPT_VERSION = 'contract-1-cardlen-2'
 
 
 def validate(row):

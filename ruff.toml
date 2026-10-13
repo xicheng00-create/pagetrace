@@ -7,3 +7,7 @@ ignore = ["E501", "B008"]
 
 [lint.per-file-ignores]
 "tests/*" = ["B011"]
+# backend/ai/cardlen.py 是切卡唯一规范实现，必须与 KB 侧
+# scripts/card_split_2026-09-30/cardlen.py **逐字节相同**（sha256 锁死，见
+# scripts/check_cardlen_sync.py）。不得为过 lint 在本地改写它 → 仅对该文件放开 UP031。
+"backend/ai/cardlen.py" = ["UP031"]
