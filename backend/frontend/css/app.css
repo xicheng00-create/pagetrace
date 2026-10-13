@@ -1,0 +1,375 @@
+/* 个人复习app — 暖纸 editorial 精修（v0.5.0）
+   视觉世界规格见 backend/frontend/DESIGN.md —— 对后续一律适用。
+   铁律：禁横向滑动（UI-001）；不可用控件常显 + 置灰 + 写明原因（UI-003）；
+   不引框架/依赖（UI-004）；一屏只有一个主行动；结构靠 1px hairline + 留白，禁嵌套卡片。 */
+
+:root {
+  /* 四语义槽：暖纸底 / 墨字 / 草绿主色 / 陶橙仅警示 */
+  --paper: #FAF6ED; --paper-2: #F5EFE1; --card: #FFFDF8;
+  --ink: #1B1E22; --ink-2: #3E3A31; --muted: #6E6553;
+  --hair: #E5DECC; --green: #1E7C50; --green-deep: #14613C; --green-tint: #E9F1E4;
+  --orange: #DD8A3E;
+  /* 禁用态：常显 + 置灰 + 写明原因；文字在暖纸上 ≥4.5:1，不靠透明糊弄 */
+  --disabled-ink: #6B6252; --disabled-bg: #F1EBDD;
+  /* 字体栈：display 用 Archivo Black（未装则回退 Noto/PingFang），正文 Archivo */
+  --disp: 'Archivo Black', 'Archivo', 'Noto Sans SC', 'PingFang SC', sans-serif;
+  --body: 'Archivo', 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  /* 圆角统一一套：卡 16 / 按钮 14 / 微块 8 */
+  --r-card: 16px; --r-btn: 14px; --r-chip: 8px;
+  --shadow: 0 18px 40px rgba(35,32,22,.10), 0 4px 12px rgba(35,32,22,.06);
+  --ease: cubic-bezier(.16,1,.3,1);   /* UI-017①：指数 ease-out，y 控制点 ≤1（禁过冲） */
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; caret-color: var(--green);
+  scrollbar-width: thin; scrollbar-color: var(--hair) var(--paper); }
+html, body { max-width: 100%; overflow-x: hidden; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 17.5px/1.75 var(--body);       /* 正文 17.5px，行高 1.75；不得低于 17px */
+  font-variant-numeric: tabular-nums;  /* 所有数字等宽对齐 */
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4, p, ul, ol, figure { margin: 0; padding: 0; }
+p { max-width: 70ch; color: var(--ink-2); }
+ul { list-style: none; }
+
+/* —— 浏览器原生面也要设计 —— */
+::selection { background: var(--green-tint); color: var(--green-deep); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--paper); }
+::-webkit-scrollbar-thumb { background: var(--hair); border: 2px solid var(--paper); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #D6CCB4; }
+:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+a { color: var(--green-deep); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em;
+  background: var(--paper-2); color: var(--ink); padding: 1px 5px; border-radius: var(--r-chip); }
+
+/* 左上角小箭头返回（ins/小红书式）：位于 banner 之下，非首页才出现 */
+.navrow { max-width: 720px; margin: 0 auto; padding: 0 22px; }
+.navrow[hidden] { display: none; }
+.navback { appearance: none; -webkit-appearance: none; background: none; border: 0; padding: 0;
+  margin: 4px 0 0 -10px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  color: var(--ink); opacity: .7; cursor: pointer; border-radius: 10px; }
+.navback[hidden] { display: none; }
+.navback:hover, .navback:active { opacity: 1; }
+.navback svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2;
+  stroke-linecap: round; stroke-linejoin: round; }
+.navback:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* —— 尺度：四档拉开（大标题 34–40 / 区块题 22 / 正文 17.5 / 次文 15 / 微标签 11.5） —— */
+.wrap { max-width: 720px; margin: 0 auto; padding: 0 22px 56px; }
+.display { font-family: var(--disp); font-weight: 900; letter-spacing: -.01em;
+  font-size: clamp(34px, 9.5vw, 40px); line-height: 1.08; color: var(--ink); margin: 24px 0 8px; }
+.h2 { font-size: 22px; font-weight: 800; line-height: 1.32; letter-spacing: -.005em; color: var(--ink); margin: 26px 0 6px; }
+.q { font-size: 22px; font-weight: 800; line-height: 1.35; letter-spacing: -.005em; color: var(--ink); margin: 10px 0 0; }
+.sub { color: var(--muted); font-size: 15px; }
+.muted { color: var(--muted); font-size: 15px; }
+.mlabel { font-size: 11.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.mlabel.g { color: var(--green); }
+.mlabel.warn { color: var(--orange); }
+.tnum { font-variant-numeric: tabular-nums; }
+.sectitle { font-size: 11.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--muted); margin: 30px 0 2px; }
+.hairline { border-top: 1px solid var(--hair); margin: 16px 0; }
+
+/* —— 顶栏 / 页脚（chrome，全站共用） —— */
+.topbar { position: sticky; top: 0; z-index: 5; background: var(--paper); border-bottom: 1px solid var(--hair); }
+.topbar-inner { max-width: 720px; margin: 0 auto; padding: 16px 22px 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none;
+  color: var(--ink); font-weight: 800; font-size: 16px; letter-spacing: .02em; }
+.brand-logo { display: block; width: 26px; height: 26px; }
+.streak { color: var(--green-deep); font-weight: 800; font-size: 13px; letter-spacing: .04em; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.streak .clover { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; vertical-align: -3px; }
+.streak .n { font-family: var(--disp); font-size: 17px; }
+.streak.disabled { color: var(--disabled-ink); }   /* 0 天常显只置灰（UI-003），绝不隐藏 */
+.pagefoot { display: flex; justify-content: center; padding: 8px 0 34px; }
+.ver { color: var(--muted); font-size: 11.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+
+/* —— 面包屑 —— */
+.crumb { font-size: 13px; color: var(--muted); padding: 18px 0 0; }
+.crumb a { color: var(--muted); text-decoration: none; }
+.crumb a:hover { color: var(--green-deep); text-decoration: underline; }
+.crumb b { color: var(--ink); font-weight: 800; }
+.crumb .sep { margin: 0 6px; color: var(--hair); }
+
+/* —— 一屏一个主行动：深绿实心大按钮 —— */
+.primary { display: block; width: 100%; text-align: left; border: 0; font: inherit; cursor: pointer;
+  text-decoration: none; border-radius: var(--r-card); padding: 20px; margin: 22px 0 0;
+  background: linear-gradient(180deg, var(--green), var(--green-deep)); color: #FBF8F0;
+  box-shadow: 0 12px 26px rgba(20,97,60,.22);
+  transition: transform .25s var(--ease), box-shadow .25s var(--ease); }
+.primary b { display: block; font-size: 20px; font-weight: 800; letter-spacing: .01em; }
+.primary > span { display: block; font-size: 14.5px; color: rgba(251,248,240,.86); margin-top: 2px; }
+.primary:hover { transform: translateY(-6px); }
+.primary:active { transform: translateY(1px); }
+.primary:disabled, .primary[aria-disabled="true"] { background: var(--disabled-bg); color: var(--disabled-ink);
+  box-shadow: none; cursor: not-allowed; transform: none; }
+.primary:disabled > span { color: var(--disabled-ink); }
+
+/* —— 次级入口：独立块（暖纸卡底 + 1px hairline 边 + 14px 圆角），块间 gap≥12px（UI-013）。
+   hairline 不再单独充当分隔——相邻可点块必须有真实间隙（竖向≥12px / 横向≥10px）。 —— */
+.rowlist { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+/* 快捷入口网格（首页）：两列 · 竖向/横向 gap 均 12px（≥12 / ≥10，UI-013）；不做横滑（UI-001） */
+.rowlist.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.rowlist.grid .row { padding: 14px; }
+.rowlist.grid .row .l > b { font-size: 16px; }
+.rowlist.grid .row .l > span { font-size: 13.5px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 16px 15px; border: 1px solid var(--hair); border-radius: var(--r-btn); background: var(--card);
+  color: var(--ink); text-decoration: none; cursor: pointer; transition: background .2s var(--ease); }
+a.row:hover { background: var(--paper-2); }
+.row .l, .chap summary .l { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.row .l > b, .chap summary .l > b { font-size: 17px; font-weight: 800; }
+.row .l > span, .chap summary .l > span { font-size: 14px; color: var(--muted); }
+.row .r, .chap summary .r { font-family: var(--disp); font-size: 15px; color: var(--muted); white-space: nowrap; }
+/* 置灰：常显 + 写明原因（UI-003），绝不隐藏；块化后同样置灰（UI-013） */
+.row.disabled { background: var(--disabled-bg); cursor: not-allowed; }
+.row.disabled .l b { color: var(--disabled-ink); }
+.row.disabled .l span, .row.disabled .r { color: var(--disabled-ink); }
+.row.disabled:hover { background: var(--disabled-bg); }
+/* 信息型行（非入口，如「复习计划」未到期项 / 本周概况数字）：仍是独立块，但不可点、不抬升 */
+.row.plain { cursor: default; }
+a.row.plain:hover { background: var(--card); }
+/* 复习计划间隔（PLAN-001）：后端换算式给出的文案，已到期用草绿强调 */
+.row .r.when.due { color: var(--green-deep); }
+
+/* —— 学科进度行（点进钻取）：同样独立块 —— */
+.progline { display: flex; align-items: center; gap: 12px; padding: 15px;
+  border: 1px solid var(--hair); border-radius: var(--r-btn); background: var(--card);
+  color: var(--ink); text-decoration: none; }
+.progline:hover { background: var(--paper-2); }
+.progline .nm { font-weight: 800; font-size: 16px; min-width: 88px; }
+.progline .num { font-size: 13.5px; color: var(--muted); white-space: nowrap; }
+.bar { flex: 1; height: 3px; background: var(--hair); border-radius: 99px; overflow: hidden; min-width: 40px; }
+/* UI-017②：填充禁动 width（layout thrash）→ `transform: scaleX()` + `transform-origin: left`；
+   进度值由 JS 写 `--p`（0..1）。 */
+.bar i { display: block; height: 100%; width: 100%; background: var(--green); border-radius: 99px;
+  transform: scaleX(var(--p, 0)); transform-origin: left; transition: transform .6s var(--ease); }
+
+/* —— 静态掌握度计量（书级；不可点，故非 .progline）：进度条 + 百分比（MAST-002） —— */
+.meter { display: flex; align-items: center; gap: 12px; padding: 15px; margin-top: 16px;
+  border: 1px solid var(--hair); border-radius: var(--r-btn); background: var(--card); }
+.meter .nm { font-weight: 800; font-size: 14px; color: var(--muted); white-space: nowrap; }
+.meter .num { font-size: 13.5px; color: var(--muted); white-space: nowrap; }
+
+/* —— 今日任务子项（TASK-001/002）：绿勾纯 CSS 画（不用 emoji）+ 行动按钮 —— */
+.row.task { justify-content: flex-start; }
+.row.task .l { flex: 1 1 auto; }
+.row .tick { flex: none; width: 22px; height: 22px; border: 2px solid var(--hair);
+  border-radius: 6px; background: var(--card); position: relative; }
+.row .tick.on { border-color: var(--green); background: var(--green); }
+.row .tick.on::after { content: ''; position: absolute; left: 6px; top: 2px; width: 6px; height: 11px;
+  border: solid #FBF8F0; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.row.task.on .l > b { color: var(--green-deep); }
+/* 行动按钮（TASK-002）：未完成「去完成」/ 完成「再来一组」；退化态常显 + 置灰 + 写明原因 */
+.row.task .btn.act { flex: none; width: auto; padding: 11px 14px; font-size: 14px; }
+.row.task .btn.act:disabled { padding: 7px 12px; }
+
+/* —— 按钮 —— */
+.btn { font: inherit; font-weight: 800; font-size: 16px; line-height: 1.25; border-radius: var(--r-btn);
+  padding: 16px 14px; cursor: pointer; border: 1px solid var(--hair); background: transparent; color: var(--ink);
+  text-align: center; text-decoration: none; white-space: nowrap; transition: transform .22s var(--ease); }
+.btn.solid { background: var(--green); border-color: var(--green); color: #FBF8F0; }
+.btn.solid:hover { background: var(--green-deep); border-color: var(--green-deep); }
+.btn:not(:disabled):hover { transform: translateY(-2px); }
+.opts .btn:not(:disabled):hover { transform: none; }
+.btn:active { transform: translateY(1px); }
+.btn.wide { display: block; width: 100%; }
+.btn:disabled { color: var(--disabled-ink); border-color: var(--hair); background: var(--disabled-bg);
+  cursor: not-allowed; white-space: normal; }
+.btn:disabled:hover { transform: none; }
+.btn .why { display: none; }
+.btn:disabled .why { display: block; margin-top: 3px; font-size: 11.5px; font-weight: 600;
+  letter-spacing: .02em; color: var(--disabled-ink); }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+
+/* —— 要点列表：hairline 分隔，禁嵌套卡 / 禁彩色左边框 —— */
+.points { margin-top: 18px; border-top: 1px solid var(--hair); }
+.points li { padding: 13px 0; border-bottom: 1px solid var(--hair); color: var(--ink-2); font-size: 17.5px; }
+
+/* —— 章行：summary 即独立块（暖纸卡底 + hairline 边 + 14px 圆角）；展开区概念行同为块 —— */
+.chap { background: transparent; }
+.chap > summary { list-style: none; cursor: pointer; display: flex; align-items: center;
+  justify-content: space-between; gap: 14px; padding: 16px 15px; border: 1px solid var(--hair);
+  border-radius: var(--r-btn); background: var(--card); transition: background .2s var(--ease); }
+.chap > summary::-webkit-details-marker { display: none; }
+.chap[open] > summary { background: var(--paper-2); }
+.chap .caret { display: inline-block; margin-left: 4px; transition: transform .2s var(--ease); }
+.chap[open] .caret { transform: rotate(180deg); }
+.chap-body { padding: 12px 0 0; }
+.chap-body .rowlist { margin-top: 0; }
+
+/* —— 概念页的卡块（靠留白分隔，不用嵌套卡） —— */
+.block { margin: 0 0 30px; }
+.block:last-child { margin-bottom: 8px; }
+/* 卡级状态标签（MAST-003）：四态中文由后端下发，mastered 走草绿强调色；令牌色文字，不用 emoji */
+.cardfoot { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+.cm { color: var(--muted); }
+.cm.on { color: var(--green); }
+
+/* —— 错题本对照（WRONG-001）：正确答案（草绿）/ 我的答案（陶橙警示） —— */
+.points li .klab { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+.points li .right { color: var(--green-deep); font-weight: 800; }
+.points li .mine { color: var(--orange); font-weight: 800; }
+.points li .sub { display: block; }
+
+/* —— 客观题选项（QUIZ 测验页）：独立块 · 竖向 gap 12px（UI-013）；文本换行、不横滑（UI-001/012）。
+   判对/判错只用「边框 + 微标签」表达：正确 = 草绿（唯一 accent）；我的错选 = 陶橙警示槽
+   （--orange 在规格里只作警示标记、不做按钮底，这里正是警示标记，不新引色）。 —— */
+.opts { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+.opt { display: block; width: 100%; text-align: left; white-space: normal; line-height: 1.5;
+  font-weight: 700; padding: 16px; }
+.opt.sel { border-color: var(--green); background: var(--green-tint); color: var(--green-deep); }
+.opt .mk { display: block; margin-top: 3px; font-size: 11.5px; font-weight: 800;
+  letter-spacing: .16em; text-transform: uppercase; }
+.opts .opt:disabled { cursor: default; background: var(--card); border-color: var(--hair); color: var(--ink-2); }
+.opts .opt.correct .mk { color: var(--green); }
+.opts .opt.wrong .mk { color: var(--orange); }
+/* 结果页解析卡是 <div class="btn opt …">（无 :disabled），判分只靠边框 + 微标签：
+   我的答案 = 2px 粗框（本身不表达对错）；正确项 = 草绿；我的错项 = 陶橙警示（QUIZ-010） */
+.quiz-explain .opt.mine { border-width: 2px; border-color: var(--ink); }
+.quiz-explain .opt.mine.correct { border-color: var(--green); background: var(--green-tint); }
+.quiz-explain .opt.mine.wrong { border-color: var(--orange); }
+.quiz-explain .opt.correct:not(.mine) { border-color: var(--green); background: var(--green-tint); }
+/* 提交 / 下一题动作区（题干 + 选项之后），与选项块保持 ≥12px 间隙 */
+.qfoot { margin-top: 16px; }
+
+/* —— 闪卡：点击 3D 翻转（看答案/收起）+ 跟手拖拽 + 阈值甩出 + 换卡入场（UI-014）。
+   行为照抄 AI学习小组app 的 knowledge deck；配色一律走本规格令牌（暖纸 / 墨 / 草绿），不带 coral。 —— */
+.kc-scene { perspective: 1200px; margin-top: 18px; }
+.kc-card { position: relative; display: grid; transform-style: preserve-3d; cursor: pointer;
+  transition: transform .45s var(--ease); }
+.kc-card.is-flipped { transform: rotateY(180deg); }
+.kc-face { grid-area: 1 / 1; min-height: 300px; padding: 24px 22px; overflow-y: auto;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch; border: 1px solid var(--hair);
+  border-radius: var(--r-card); background: var(--card); box-shadow: var(--shadow);
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  display: flex; flex-direction: column; gap: 12px; }
+.kc-face .q { margin: 0; }
+.kc-front { justify-content: center; }
+.kc-back { transform: rotateY(180deg); background: var(--green-tint); justify-content: flex-start; }
+.kc-back .points { margin-top: 0; }
+/* 滑动期：关 transition 跟手（UI-014） */
+.kc-card.dragging { transition: none; cursor: grabbing; user-select: none; -webkit-user-select: none; }
+/* 飞出：右 .out-r / 左 .out-l（320ms ease-in，opacity .35，pointer-events:none） */
+.kc-card.out-r { transform: translateX(135%) rotate(16deg); opacity: .35;
+  transition: transform .32s ease-in, opacity .32s ease-in; pointer-events: none; }
+.kc-card.out-l { transform: translateX(-135%) rotate(-16deg); opacity: .35;
+  transition: transform .32s ease-in, opacity .32s ease-in; pointer-events: none; }
+/* 下一张入场：340ms cubic-bezier(.2,.8,.3,1) */
+@keyframes kcIn { from { transform: translateY(26px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
+.kc-card.kc-in { animation: kcIn .34s cubic-bezier(.2,.8,.3,1); }
+.kc-hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: 14px; }
+
+/* —— 视图头（复习/测验的进度） —— */
+.viewhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 20px 0 14px;
+  border-bottom: 1px solid var(--hair); }
+.viewhead .n { font-family: var(--disp); font-size: 17px; color: var(--green-deep); }
+
+/* —— 状态块：唯一一种白卡（error / empty），禁嵌套 —— */
+.state { background: var(--card); border: 1px solid var(--hair); border-radius: var(--r-card);
+  padding: 22px; margin-top: 18px; box-shadow: var(--shadow); }
+.state .h2 { margin-top: 8px; }
+.state .sub { margin-top: 6px; }
+.retry { margin-top: 16px; }
+
+/* —— loading：静态骨架 + 「加载中…」，不做圆形转圈 —— */
+.loading { padding: 26px 0; }
+.skel { height: 14px; background: var(--paper-2); border-radius: var(--r-chip); margin: 12px 0; }
+.skel.w70 { width: 70%; }
+.skel.w45 { width: 45%; }
+
+/* —— 动效预算：一次「作者化」进场（列表错峰 fadeUp）+ hover 抬升 6px —— */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.rise { animation: fadeUp .5s var(--ease) both; animation-delay: calc(var(--d, 0) * 1ms); }
+
+/* UI-013 硬化（v0.5.3）：「可交互块」与列表容器的进场动画**不得位移自身**。
+   入场瞬间若块自带 translateY，相邻块的**实测**竖向间隙会从 12px 掉到 ~2px
+   （机械断言由此变红 → 正是 v0.5.2「条款写了、实现漏了」的事故形态）。
+   故可交互块 / 列表容器只做透明度淡入 fadeIn；位移型 fadeUp 仅留给页面级标题与状态块。 */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.rise:is(a, button, .row, .btn, .primary, .progline, .chap, .rowlist) { animation-name: fadeIn; }
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: none; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* MAST-004 硬化（v0.8.0）：掌握度文本由「已掌握 x / 已学 y」变长为四段
+   （掌握度 · 覆盖率 · 已学/共 · 层级四态）→ 沿用的 `white-space: nowrap` 会在 390px
+   撑出横向滚动（实测 body.scrollWidth 515 > innerWidth 390，UI-001 违规）。
+   四级计量文本一律允许换行；计量行容器允许折行，窄屏不横滑。 */
+.progline .num, .meter .num, .row .num, .chap summary .num {
+  white-space: normal; overflow-wrap: anywhere; min-width: 0; }
+.progline, .meter { flex-wrap: wrap; }
+
+/* —— UI-018 覆盖率环形图 + MAST-008 掌握度五星（v0.10.0）——
+   数值只读后端字段；`.gauges` 组在块内第二行（`flex-basis:100%` 强制换行），
+   不挤压首行（书名/进度条/四段文本），不引起布局跳动。 */
+.gauges { display: flex; align-items: center; gap: 14px; flex: 1 0 100%; margin-top: 2px; min-width: 0; }
+.ring { display: inline-flex; align-items: center; flex: none; }
+.ring svg { width: 64px; height: 64px; display: block; }
+.ring circle { fill: none; stroke-width: 5; }
+.ring-bg { stroke: var(--hair); }
+.ring-fg { stroke: var(--green); stroke-linecap: round; }   /* 进度环 = 唯一 accent 绿（禁新颜色） */
+.ring-cap { font-size: 11px; fill: var(--muted); letter-spacing: .02em; }
+.ring-num { font-size: 15px; font-weight: 800; fill: var(--ink); font-variant-numeric: tabular-nums; }
+.stars { display: inline-flex; align-items: center; gap: 8px; flex: none; min-width: 0; }
+.stars-row { width: 120px; height: 24px; display: block; flex: none; }
+.stars-bg path { fill: var(--hair); }                       /* 空星 = 浅色 --hair */
+.stars-fg path { fill: var(--green); }                      /* 实星 = accent 绿（小数部分靠 clip 遮罩） */
+.stars-line { font-size: 13px; font-weight: 800; color: var(--ink); white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; }
+.star-ico { width: 14px; height: 14px; fill: var(--green); flex: none; }   /* 「4.3★」的 ★ 用 SVG，非字符/emoji */
+.stars.none { color: var(--muted); font-size: 13px; }       /* m 缺失 → 「—」 */
+
+/* —— SCOPE-001~003 图书范围面板（v0.10.0）——
+   勾选框复用 .tick（accent 绿 + 白描对勾，纯 CSS、非 emoji、非 <input>）；
+   选中行只用唯一 accent 绿强调（边 = --green、底 = --green-tint、书名 = --green-deep）。 */
+.row.scope-book { user-select: none; -webkit-user-select: none; }
+.row.scope-book:hover { background: var(--paper-2); }
+.row.scope-book .tick { flex: none; width: 22px; height: 22px; }
+.row.scope-book.on { border-color: var(--green); background: var(--green-tint); }
+.row.scope-book.on .l > b { color: var(--green-deep); }
+.scope-actions { margin-bottom: 4px; }
+.scope-actions:last-of-type { margin-top: 20px; margin-bottom: 0; }
+.scope-empty { margin-top: 12px; }
+.scope-empty .mlabel.warn { display: inline-block; margin-right: 6px; }
+/* SCOPE-004（v0.11.0）：确认前草稿脏态「尚未确认」+ 空草稿拦截错误条（role=alert，常显按钮下方） */
+.scope-dirty { margin-top: 12px; }
+.scope-dirty .mlabel { display: inline-block; margin-right: 6px; color: var(--orange); }
+.scope-repaired { margin-top: 12px; }
+.scope-repaired .mlabel.warn { display: inline-block; margin-right: 6px; }
+.scope-error { margin-top: 12px; color: var(--orange); font-weight: 700; }
+.scope-error[hidden] { display: none; }
+
+.freeze-chip { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding: 2px; display: inline-flex; align-items: center; gap: 4px; }
+/* UI-020：冰冻符号与数字必须与连胜那组**同尺寸**（图标同为 18×18 描边 SVG、数字同为 17px 显示字体，禁 emoji 字形） */
+.freeze-chip .flake { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+.freeze-chip .n { font-family: var(--disp); font-size: 17px; }
+.freeze-chip.disabled,.freeze-note { color: var(--disabled-ink); } .freeze-note { font-size:10px; }
+.freeze-anim { position:fixed; inset:0; z-index:9999; display:grid; place-items:center; background:#dcecf4ee; color:#28647b; font-size:32px; font-weight:800; animation: freeze-in 1.5s ease both; }
+.freeze-anim[hidden] { display:none; } @keyframes freeze-in { 0%{opacity:0;filter:blur(8px)} 20%,80%{opacity:1;filter:blur(0)} 100%{opacity:0} }
+
+/* S1 上传文案与控件：使用既有令牌，长文件名不撑开窄屏。 */
+.notice { color: var(--ink); border-block: 1px solid var(--hair); padding-block: 16px; margin-block: 24px; font-size: 17.5px; line-height: 1.75; overflow-wrap: anywhere; }
+.upload-fields { display: grid; gap: 12px; margin-block: 24px; min-width: 0; }
+.upload-fields input { max-width: 100%; min-width: 0; font: inherit; color: var(--muted); }
+#uploadSubmit, #draftConfirm { width: 100%; margin-block: 12px 24px; }
+#uploadProgress { overflow-wrap: anywhere; }
+
+/* 草稿沿用细线与留白；low 保留可读性，不引入嵌套卡。 */
+.draft-item { padding: 20px 0; border-bottom: 1px solid var(--hair); overflow-wrap: anywhere; }
+.draft-low { color: var(--muted); }
+.auth-panel[hidden] { display:none; }
+.auth-panel { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:22px; background:var(--paper); }
+.auth-form { width:min(100%,420px); display:grid; gap:10px; }
+.auth-form h2 { margin-bottom:12px; }
+.auth-form input { width:100%; min-height:48px; padding:10px 12px; color:var(--ink); background:var(--card); border:1px solid var(--hair); border-radius:var(--r-chip); font:inherit; }
+.auth-form label { font-size:.9rem; color:var(--ink-2); }
+.auth-form [role=alert] { color:#9b3026; }
+.logout-btn { margin-left:auto; min-height:40px; padding:6px 12px; color:var(--green-deep); background:transparent; border:1px solid var(--hair); border-radius:var(--r-btn); font:inherit; cursor:pointer; }

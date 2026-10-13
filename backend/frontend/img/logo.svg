@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="个人复习 app">
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFDF8"/>
+      <stop offset="1" stop-color="#F5EFE1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 底板：暖纸 -->
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="#FAF6ED"/>
+  <rect x="12" y="12" width="488" height="488" rx="100" fill="none" stroke="#E5DECC" stroke-width="6"/>
+
+  <!-- 书影 -->
+  <ellipse cx="256" cy="392" rx="130" ry="14" fill="#E5DECC"/>
+
+  <!-- 展开的书：左页 / 右页（墨色线稿） -->
+  <path d="M256 170 C226 150 186 142 150 146 L150 346 C186 342 226 350 256 370 Z"
+        fill="url(#page)" stroke="#1B1E22" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M256 170 C286 150 326 142 362 146 L362 346 C326 342 286 350 256 370 Z"
+        fill="url(#page)" stroke="#1B1E22" stroke-width="9" stroke-linejoin="round"/>
+
+  <!-- 书脊 -->
+  <path d="M256 170 L256 370" stroke="#1B1E22" stroke-width="9" stroke-linecap="round"/>
+
+  <!-- 页内文字线 -->
+  <g stroke="#8C8371" stroke-width="8" stroke-linecap="round" fill="none">
+    <path d="M178 206 H224"/>
+    <path d="M178 234 H232"/>
+    <path d="M178 262 H214"/>
+    <path d="M288 206 H334"/>
+    <path d="M280 234 H334"/>
+    <path d="M298 262 H334"/>
+  </g>
+
+  <!-- 书签飘带：草绿强调 -->
+  <path d="M312 146 L312 214 L334 196 L356 214 L356 150 Z" fill="#1E7C50"/>
+</svg>

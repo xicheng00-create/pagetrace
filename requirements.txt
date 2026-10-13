@@ -1,0 +1,19 @@
+# Python runtime
+Flask>=3.0
+waitress>=3.0
+PyJWT>=2.8
+Werkzeug>=3.0
+python-dotenv>=1.0
+requests>=2.0
+pywebpush>=2.0
+
+# Dev/quality
+pytest>=8.0
+pytest-cov>=5.0
+ruff>=0.6
+
+# 说明：不装 pdfplumber / python-pptx / python-docx —— 上游是 JSONL 契约（DESIGN_SPEC §5），
+# 本 app 不解析原始 PDF/PPTX；也不装 torch / chromadb（无 RAG，问答归 brain）。
+
+# S1 唯一新增依赖：本机无 pdftotext，用于文字型 PDF 校验与逐页抽文本（非 OCR）。
+PyMuPDF==1.28.2

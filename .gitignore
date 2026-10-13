@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+.coverage
+.pytest_cache/
+.ruff_cache/
+data-local/
+reports/
+settings.local*
+*.log
+.DS_Store

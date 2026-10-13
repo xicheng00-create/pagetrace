@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="复习">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#FAF6ED">
+  <title>个人复习 · Review</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png?v=0.16.2">
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg?v=0.16.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png?v=0.16.2">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/css/app.css?v=0.16.2">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#/">
+        <img class="brand-logo" src="/img/logo.svg?v=0.16.2" alt="" width="26" height="26">
+        <span>个人复习</span>
+      </a>
+      <span class="streak disabled" id="streak"><svg class="clover" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="5"/><circle cx="16" cy="8" r="5"/><circle cx="8" cy="16" r="5"/><circle cx="16" cy="16" r="5"/></svg><span class="n tnum">0</span> 连胜 <button id="freezeChip" class="freeze-chip disabled" type="button" aria-label="查看冰冻次数"><svg class="flake" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5v19M3.8 7.3l16.4 9.4M20.2 7.3 3.8 16.7M9.5 4.6l2.5 2.5 2.5-2.5M9.5 19.4l2.5-2.5 2.5 2.5M5.6 8.2l3.5.9M5.6 15.8l3.5-.9M18.4 8.2l-3.5.9M18.4 15.8l-3.5-.9"/></svg><span id="freezeCount" class="n tnum">0</span></button><span id="freezeNote" class="freeze-note"></span></span>
+    </div>
+  </header>
+
+  <div class="navrow" id="navrow" hidden>
+    <button id="backBtn" class="navback" type="button" aria-label="返回上一级" title="返回上一级" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.6 5.2 7.6 12l7 6.8"/></svg>
+    </button>
+  </div>
+
+  <div id="freezeAnim" class="freeze-anim" hidden>数字被冰封</div>
+  <template id="uploadNoticeTemplate"><p id="uploadNotice" class="notice">上传的文本会发送给模型服务商，用于生成知识卡片。</p></template>
+  <div id="authPanel" class="auth-panel" hidden role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <form id="authForm" class="auth-form">
+      <h2 id="authTitle">登入</h2>
+      <p id="authGuide" class="sub">首次使用請先建立帳號，或用邀請碼註冊。</p>
+      <div id="authCodeField" hidden><label for="authCode">邀請碼</label><input id="authCode" name="code" autocomplete="off"></div>
+      <label for="authUsername">账号</label><input id="authUsername" name="username" autocomplete="username" required maxlength="80">
+      <label for="authPassword">密码</label><input id="authPassword" name="password" type="password" autocomplete="current-password" required>
+      <p id="authError" role="alert" hidden></p>
+      <button id="authSubmit" class="primary" type="submit">登入</button>
+      <button id="authSwitch" class="btn" type="button">用邀請碼註冊</button>
+    </form>
+  </div>
+  <main class="wrap" id="app">
+    <div class="loading"><div class="mlabel">加载中…</div><div class="skel w70"></div><div class="skel w45"></div></div>
+  </main>
+
+  <footer class="pagefoot"><span class="ver" id="ver">v0.16.2</span></footer>
+
+  <script src="/js/api.js?v=0.16.2"></script>
+  <script src="/js/flashcard.js?v=0.16.2"></script>
+  <script src="/js/invites.js?v=0.16.2"></script>
+  <script src="/js/app.js?v=0.16.2"></script>
+  <script src="/js/review.js?v=0.16.2"></script>
+  <script src="/js/quiz.js?v=0.16.2"></script>
+  <script src="/js/wrong.js?v=0.16.2"></script>
+  <script src="/js/plan.js?v=0.16.2"></script>
+  <script src="/js/weak.js?v=0.16.2"></script>
+  <script src="/js/report.js?v=0.16.2"></script>
+  <script src="/js/scope.js?v=0.16.2"></script>
+  <script>document.getElementById("app").appendChild(document.getElementById("uploadNoticeTemplate").content);</script>
+  <script src="/js/upload.js?v=0.16.2"></script>
+  <script src="/js/drafts.js?v=0.16.2"></script>
+  <script>
+    // /health 此后只用于读版本号（首页不再展示 db/contract 技术文案）
+    (async () => {
+      try {
+        const r = await api.get('/health');
+        const el = document.getElementById('ver');
+        if (el) el.textContent = 'v' + r.data.version;
+      } catch (_) { /* 版本读取失败不影响页面 */ }
+      try {
+        if ('serviceWorker' in navigator) await navigator.serviceWorker.register('/sw.js');
+      } catch (_) { /* SW 注册失败不该影响页面 */ }
+    })();
+  </script>
+</body>
+</html>
