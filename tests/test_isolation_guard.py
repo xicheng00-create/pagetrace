@@ -7,9 +7,25 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from app import create_app
 
+@pytest.fixture
+def isolated_production(tmp_path, monkeypatch):
+    import sqlite3
+    from data import s2_schema, db, models
+    path = tmp_path / "synthetic-production.sqlite3"
+    with sqlite3.connect(path) as con:
+        con.executescript(s2_schema.FRESH_SCHEMA)
+        models.migrate_upload(con)
+    original = db.os.path.join
+    def join(*parts):
+        if parts[-2:] == ("data-local", "review.sqlite3"):
+            return str(path)
+        return original(*parts)
+    monkeypatch.setattr(db.os.path, "join", join)
+    return path
 
-def test_production_db_path_rejected(monkeypatch, tmp_path):
-    production = Path(__file__).resolve().parents[1] / 'data-local/review.sqlite3'
+
+def test_production_db_path_rejected(monkeypatch, tmp_path, isolated_production):
+    production = isolated_production
     monkeypatch.setenv('REVIEW_ISOLATED_RUN', '1')
     monkeypatch.setenv('DATABASE_PATH', str(production))
     with pytest.raises(RuntimeError, match='refuses production database'):
@@ -21,7 +37,7 @@ def test_production_db_path_rejected(monkeypatch, tmp_path):
         create_app()
 
 
-def test_runtime_environment_overrides_imported_config(monkeypatch, tmp_path):
+def test_runtime_environment_overrides_imported_config(monkeypatch, tmp_path, isolated_production):
     from config import BaseConfig
     from data.db import _db_path
     monkeypatch.setattr(BaseConfig, 'DATABASE_PATH', '/stale/import/path')
@@ -31,10 +47,10 @@ def test_runtime_environment_overrides_imported_config(monkeypatch, tmp_path):
         assert _db_path() == str(tmp_path / 'safe.sqlite3')
 
 
-def test_hardlink_production_rejected_without_writes(monkeypatch, tmp_path):
+def test_hardlink_production_rejected_without_writes(monkeypatch, tmp_path, isolated_production):
     import os
     import sqlite3
-    production = Path(__file__).resolve().parents[1] / 'data-local/review.sqlite3'
+    production = isolated_production
     alias = tmp_path / 'hardlink.sqlite3'
     os.link(production, alias)
     def snapshot(con):
@@ -58,17 +74,17 @@ def test_hardlink_production_rejected_without_writes(monkeypatch, tmp_path):
         alias.unlink()
 
 
-def test_uri_fallback_rejected(monkeypatch):
+def test_uri_fallback_rejected(monkeypatch, isolated_production):
     from config import BaseConfig
-    production = Path(__file__).resolve().parents[1] / 'data-local/review.sqlite3'
+    production = isolated_production
     monkeypatch.delenv('DATABASE_PATH', raising=False)
     monkeypatch.setattr(BaseConfig, 'DATABASE_PATH', None)
-    monkeypatch.setattr(BaseConfig, 'SQLALCHEMY_DATABASE_URI', f'sqlite:///{production.parent}/../data-local/review.sqlite3/')
+    monkeypatch.setattr(BaseConfig, 'SQLALCHEMY_DATABASE_URI', f'sqlite:///{production.parent}/../{production.parent.name}/{production.name}/')
     with pytest.raises(RuntimeError, match='refuses production database'):
         create_app()
 
 
-def test_production_without_markers_is_allowed(monkeypatch):
+def test_production_without_markers_is_allowed(monkeypatch, isolated_production):
     """授权契约：无孤立标记的进程 = 生产运行，**必须能连生产库启动**。
 
     （2026-10-12 实测事故：门禁无条件拒绝生产库 ⇒ FLASK_ENV=production 启动即抛，
@@ -77,7 +93,7 @@ def test_production_without_markers_is_allowed(monkeypatch):
     """
     import flask
     from data import db as db_mod
-    production = Path(__file__).resolve().parents[1] / 'data-local/review.sqlite3'
+    production = isolated_production
     monkeypatch.delenv('REVIEW_ISOLATED_RUN', raising=False)
     monkeypatch.delenv('PYTEST_CURRENT_TEST', raising=False)
     monkeypatch.delenv('ALLOW_PRODUCTION_DB', raising=False)
@@ -87,11 +103,11 @@ def test_production_without_markers_is_allowed(monkeypatch):
         db_mod.reject_production_path()  # 不抛 = 生产可启动
 
 
-def test_isolated_run_refuses_production_and_allow_flag_is_exception(monkeypatch):
+def test_isolated_run_refuses_production_and_allow_flag_is_exception(monkeypatch, isolated_production):
     """孤立运行（门禁）必须拒生产库；只有显式 ALLOW_PRODUCTION_DB=1 才放行。"""
     import flask
     from data import db as db_mod
-    production = Path(__file__).resolve().parents[1] / 'data-local/review.sqlite3'
+    production = isolated_production
     probe = flask.Flask('probe', root_path=str(Path(__file__).resolve().parents[1] / 'backend'))
     monkeypatch.setenv('DATABASE_PATH', str(production))
     monkeypatch.setenv('REVIEW_ISOLATED_RUN', '1')
@@ -103,7 +119,7 @@ def test_isolated_run_refuses_production_and_allow_flag_is_exception(monkeypatch
         db_mod.reject_production_path()  # 显式例外（部署/入库脚本专用）
 
 
-def test_gate_targets_mark_themselves_isolated_and_never_allow_production():
+def test_gate_targets_mark_themselves_isolated_and_never_allow_production(isolated_production):
     """门禁入口必须自带孤立标记，且**不得**继承 ALLOW_PRODUCTION_DB 授权。"""
     makefile = (Path(__file__).resolve().parents[1] / 'Makefile').read_text(encoding='utf-8')
     for target in ('test:', 'smoke:'):
@@ -112,10 +128,10 @@ def test_gate_targets_mark_themselves_isolated_and_never_allow_production():
         assert 'ALLOW_PRODUCTION_DB' not in block, f'{target} 不得携带生产授权'
 
 
-def test_attach_production_refused_without_writes(monkeypatch, tmp_path):
+def test_attach_production_refused_without_writes(monkeypatch, tmp_path, isolated_production):
     import sqlite3
     from data.db import get_db
-    production = Path(__file__).resolve().parents[1] / 'data-local/review.sqlite3'
+    production = isolated_production
     monkeypatch.setenv('DATABASE_PATH', str(tmp_path / 'safe.sqlite3'))
     app = create_app()
     with sqlite3.connect(f'file:{production}?mode=ro', uri=True) as observer:

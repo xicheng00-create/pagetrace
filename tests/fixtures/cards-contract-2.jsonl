@@ -1,1 +1,1 @@
-{"contract": 2, "concept_id": "未来契约", "subject": "psychology", "book": "合成示例书1-第6版", "chapter": "第1章", "pages": [1], "title": "新契约", "question": "演示：不支持的契约是否拒绝？", "answer_points": ["拒绝未知版本。"]}
+{"contract": 2, "concept_id": "未来契约", "subject": "demo", "book": "合成示例书3", "chapter": "第1章", "pages": [1], "title": "新契约", "question": "演示：不支持的契约是否拒绝？", "answer_points": ["拒绝未知版本。"]}

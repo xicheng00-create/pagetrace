@@ -172,7 +172,7 @@ def test_pages_optional_source_degrades(tmp_path):
     但给了非法类型（数字）仍拒收——可选不等于不校验。"""
     base = {
         "contract": 1, "concept_id": "冲煮变量", "subject": "demo",
-        "book": "合成示例书1-第6版", "chapter": "第1章", "title": "四种冲煮变量",
+        "book": "合成示例书3", "chapter": "第1章", "title": "四种冲煮变量",
         "question": "成人依恋有哪四种？", "answer_points": ["安全型", "焦虑型", "回避型", "紊乱型"],
     }
     lines = [
@@ -190,7 +190,7 @@ def test_pages_optional_source_degrades(tmp_path):
     assert stats["new"] == 2
     assert stats["rejected"] == 1
     assert any("pages" in r for r in stats["reasons"])
-    assert {r["source"] for r in con.execute("SELECT source FROM cards")} == {"合成示例书1-第6版/第1章"}
+    assert {r["source"] for r in con.execute("SELECT source FROM cards")} == {"合成示例书3/第1章"}
     assert con.execute("SELECT source_pages FROM concepts WHERE concept_uid='预热步骤'").fetchone()[0] == ""
     con.close()
 

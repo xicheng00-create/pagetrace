@@ -34,5 +34,5 @@ def test_cross_concept_similar_is_kept():
 
 
 def test_normalize_helper():
-    assert cardgate.normalize_label(" 依恋，类型！ ") == "冲煮变量"
+    assert cardgate.normalize_label(" 冲煮，变量！ ") == "冲煮变量"
     assert cardgate.normalize_label(None) == ""

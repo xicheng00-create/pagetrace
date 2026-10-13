@@ -247,7 +247,7 @@ def test_prompt_skeleton_follows_wanted_types():
     旧版骨架写死 `{"type":"bool",…}` 且规则只讲判断题 → 模型照抄样例，要选择题也返 bool，
     被 `_validate` 拒收 → 生产里 2026-09-27 起 28 道选择题**全部**降级为机械题。
     """
-    cards = [{"card_id": 1, "front": "合成示例书1包括哪些要点？", "back": LABELS, "chapter_id": 1},
+    cards = [{"card_id": 1, "front": "合成示例书10包括哪些要点？", "back": LABELS, "chapter_id": 1},
              {"card_id": 2, "front": "归属需要指什么？", "back": CLAIMS[2], "chapter_id": 1}]
     only_choice = quizgen._system_prompt(cards[:1], ["choice"])
     assert '"type": "choice"' in only_choice
@@ -261,7 +261,7 @@ def test_prompt_skeleton_follows_wanted_types():
 
 def test_llm_batch_rejects_wrong_type_and_warns(monkeypatch, caplog):
     """回归（QUIZ-012）：要选择题却返是非题 → 一律作废 + 记 warning（可观测性）。"""
-    card = {"card_id": 7, "front": "合成示例书1包括哪些要点？", "back": LABELS, "chapter_id": 1}
+    card = {"card_id": 7, "front": "合成示例书10包括哪些要点？", "back": LABELS, "chapter_id": 1}
     monkeypatch.setattr(quizgen, "_chat", lambda _m: json.dumps(
         {"items": [{"card_id": 7, "type": "bool", "stem": "判断：…", "options": ["对", "错"],
                     "answer_key": "对"}]}, ensure_ascii=False))

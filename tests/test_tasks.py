@@ -21,7 +21,7 @@ NOW = datetime(2026, 9, 27, 10, 0, tzinfo=TZ8)
 def _seed(db, *, due=3, learned=0):
     """1 学科 / 1 书 / 1 章（已解锁）/ 1 概念 / due 张到期卡（status='reviewing'）。返回卡 id 列表。"""
     con = ingest_kb.connect(str(db))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('合成示例书12','demo',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('演示学科','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,subject_id,title,slug,status,created_at) VALUES(1,1,'书','book','active','t')")
     con.execute("INSERT INTO chapters(book_id,name,order_no,anchor,status,unlocked_at)"
                 " VALUES(1,'第1章',1,'第1章','unlocked','t')")
@@ -153,7 +153,7 @@ def test_api_endpoint(tmp_path, monkeypatch):
 def _seed_pool(db, *, due=0, new=0):
     """1 学科 / 1 书 / 1 章（已解锁）/ 1 概念；`due` 张到期 + `new` 张未学新卡。"""
     con = ingest_kb.connect(str(db))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('合成示例书12','demo',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('演示学科','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,subject_id,title,slug,status,created_at) VALUES(1,1,'书','book','active','t')")
     con.execute("INSERT INTO chapters(book_id,name,order_no,anchor,status,unlocked_at)"
                 " VALUES(1,'第1章',1,'第1章','unlocked','t')")

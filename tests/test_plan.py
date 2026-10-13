@@ -25,7 +25,7 @@ AT = datetime(2026, 9, 27, 10, 0, tzinfo=TZ8)
 def _seed(db, cards):
     """1 学科 / 1 书 / 1 章 / 1 概念；cards = [(front, status, next_review_at)]。"""
     con = connect(str(db))
-    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('合成示例书12','demo',0,'t')")
+    con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('演示学科','demo',0,'t')")
     con.execute("INSERT INTO books(owner_id,id,subject_id,title,slug,status,created_at) VALUES(1,1,1,'书A','book-a','active','t')")
     con.execute("INSERT INTO chapters(id,book_id,name,order_no,anchor,status,unlocked_at)"
                 " VALUES(1,1,'第1章',1,'第1章','unlocked','t')")

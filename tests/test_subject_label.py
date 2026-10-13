@@ -24,7 +24,7 @@ from scripts import backfill_subject_labels as backfill_cli  # noqa: E402
 from scripts import ingest_kb  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-LABEL = BaseConfig.SUBJECT_LABELS["demo"]  # 合成示例书12
+LABEL = BaseConfig.SUBJECT_LABELS["demo"]  # 演示学科
 
 
 def _con(tmp_path, name="t.sqlite3"):

@@ -36,7 +36,7 @@ def subtitle_of(title: str | None, concept_name: str | None = None) -> str | Non
 
     - 有 `SUB_SEP` → 取**最后一段**（概念名可能跨语言/带限定语，只认分隔符右侧）。
     - 无 `SUB_SEP` → 整条 `title` 就是子卡标题（老式标题）。
-    - 结果为空、或**与概念名相同**（未切分卡 `title = 概念名`）→ `None`：不显示，避免「合成示例书1 · 合成示例书1」。
+    - 结果为空、或**与概念名相同**（未切分卡 `title = 概念名`）→ `None`：不显示，避免「合成示例书10 · 合成示例书10」。
     - 前端零推导：卡面短名一律读后端本字段，不得前端 split。
     """
     t = str(title or "").strip()

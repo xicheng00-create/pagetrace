@@ -10,7 +10,7 @@ REPO_ROOT = BACKEND_DIR.parent
 
 
 class BaseConfig:
-    S2_OWNER_USERNAME = getattr(os, "environ").get("S2_OWNER_USERNAME", "owner")
+    S2_OWNER_USERNAME = os.environ.get("S2_OWNER_USERNAME", "owner")
     VERSION = "0.16.2"
     APP_SECRET = os.environ.get("APP_SECRET", "")
     JWT_SECRET = os.environ.get("JWT_SECRET", "") or os.environ.get("APP_SECRET", "") or "development-only-change-me"
@@ -29,8 +29,7 @@ class BaseConfig:
 
     # 学科显示名映射（DATA-006）：契约只给 slug，**显示名由 app 侧维护**（唯一来源 = 库内 subjects.name）。
     # 加学科时在这里补一行；未命中的 slug 回落为 slug 本身，并在 ingest 时记一条 warning。
-    SUBJECT_LABELS = {"psychology": "合成示例书12", "management": "合成示例书7",
-                      "creator": "创作者经济", "demo": "演示学科"}
+    SUBJECT_LABELS = {"demo": "演示学科"}
 
     # 卡片四状态中文词表（MAST-003 / MAST-005，v0.6.1）：**唯一来源**，前端零映射、零拼接。
     # 卡级 `status_label`（MAST-003）与概念行 `status_counts`/`status_label`（MAST-005）都只从这里取词。
