@@ -11,7 +11,7 @@ REPO_ROOT = BACKEND_DIR.parent
 
 class BaseConfig:
     S2_OWNER_USERNAME = os.environ.get("S2_OWNER_USERNAME", "owner")
-    VERSION = "0.16.2"
+    VERSION = "0.16.3"
     APP_SECRET = os.environ.get("APP_SECRET", "")
     JWT_SECRET = os.environ.get("JWT_SECRET", "") or os.environ.get("APP_SECRET", "") or "development-only-change-me"
     JWT_TTL_HOURS = int(os.environ.get("JWT_TTL_HOURS", "720"))

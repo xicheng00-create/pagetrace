@@ -35,6 +35,25 @@ def is_gloss_label(p: str) -> bool:
     return bool(GLOSS_LABEL.match((p or "").strip()))
 
 
+def display_options(options: list[str], *, ctx: str, item_id) -> list[str]:
+    """选项**呈现顺序**（QUIZ-014）：按 `(ctx, item_id)` 播种的确定性置换。
+
+    动机（2026-10-13 owner 报障）：提示词骨架把正确项写在第一项，模型照抄
+    → 生产 76 题里 72 题（94.7%）正确答案都在首位，等于白送。本函数在
+    **交付前端的唯一出口**打乱顺序，保证位置近似均匀：
+    - **不改库**：`quiz_items.options` 原样保留，缓存复用与幂等不受影响；
+    - **不改判分**：QUIZ-004 仍按**文本**比对，`answer_key` 仍不下发（QUIZ-001）；
+    - **同一 ctx（会话 id）同一题恒定** → 结果页能复现用户当时看到的顺序；
+    - **不同会话重新置换** → 位置记不住。
+    """
+    opts = [str(o) for o in (options or [])]
+    if len(opts) < 2:
+        return opts
+    order = list(range(len(opts)))
+    random.Random(f"{ctx}|{item_id}|options").shuffle(order)
+    return [opts[i] for i in order]
+
+
 def usable_distractor(p: str, correct: str) -> bool:
     """能否当干扰项：够长、≠正确答案、且不是纯名词标签。"""
     p = (p or "").strip()
@@ -59,9 +78,11 @@ def pick_distractors(pool: list[str], correct: str, card_id: int, k: int = 2) ->
 
 
 def choice_example(c: dict) -> dict:
+    # 骨架只示范**形状**：三条选项文字同形、answer_key 不落在固定位置，避免模型照抄
+    # 「正确项永远第一项」（2026-10-13 报障的根因，见 QUIZ-014）。
     return {"card_id": c["card_id"], "type": "choice", "stem": "…？",
-            "options": ["选项一（完整说法）", "选项二（完整说法）", "选项三（完整说法）"],
-            "answer_key": "选项一（完整说法）"}
+            "options": ["（完整说法·甲）", "（完整说法·乙）", "（完整说法·丙）"],
+            "answer_key": "（与正确那条逐字相同，位置任意）"}
 
 
 def bool_example(c: dict) -> dict:
@@ -99,6 +120,7 @@ def system_prompt(cards: list[dict], types: list[str]) -> str:
             "**不要**用「以下哪一项属于…」「下列哪项正确」这类泛问；给 3–4 个选项，**每个选项都是一句完整说法/定义**"
             "（至少 8 字，**不得是「了解（knowledge）」这类纯名词标签**）；恰有一个选项正确且与该卡考点逐字一致，"
             "其余选项取自同章其他卡的考点、似是而非；answer_key 必须逐字等于某个选项。\n"
+            "**选项顺序不得固定：正确答案可位于任意位置，禁止总放在第一项。**\n"
             "- want=bool（是非题）：题干一句命题；options 必须**逐字**等于该卡 bool_options；"
             "answer_key 必须逐字等于其中之一。\n")
     pairs = list(zip(cards, types, strict=True))

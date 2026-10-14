@@ -150,6 +150,7 @@
   "tests/test_progress.py",
   "tests/test_queue_group.py",
   "tests/test_quiz.py",
+  "tests/test_quiz_option_order.py",
   "tests/test_quiz_refresh.py",
   "tests/test_quizgen_unit.py",
   "tests/test_quota.py",

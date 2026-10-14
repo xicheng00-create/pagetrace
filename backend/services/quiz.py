@@ -19,7 +19,7 @@ from config import BaseConfig
 from flask import g
 
 from services import cards as card_pool
-from services import labels, quizgen, review_sched, unlock
+from services import labels, quizgen, quiztext, review_sched, unlock
 
 # session_id -> {"items": {item_id: item}}
 _SESSIONS: dict[str, dict] = {}
@@ -68,17 +68,19 @@ def score_pct(correct, answered) -> int:
     return round(int(correct or 0) / answered * 100) if answered else 0
 
 
-def public_item(item: dict, card: dict | None = None) -> dict:
+def public_item(item: dict, card: dict | None = None, *, ctx: str) -> dict:
     """会话可见字段：**绝不含 `answer_key`**（QUIZ-001 反向断言）。
 
     `book` / `chapter` 只是微标签出处（DESIGN.md §3），不泄漏答案。
+    `ctx` = 会话 id：选项呈现顺序按 `(ctx, item_id)` 确定性置换（QUIZ-014），
+    同一会话内恒定、跨会话重排；答案位置不固定。
     """
     out = {
         "id": item["id"],
         "card_id": item["card_id"],
         "type": item["type"],
         "stem": item["stem"],
-        "options": item["options"],
+        "options": quiztext.display_options(item["options"], ctx=ctx, item_id=item["id"]),
     }
     if card:
         out["book"] = card.get("book")
@@ -132,7 +134,7 @@ def start_session(con, *, subject_id=None, size=None, book_ids=None) -> dict:
     return {
         "session_id": sid,
         "size": len(items),
-        "items": [public_item(it, meta.get(it["card_id"])) for it in items],
+        "items": [public_item(it, meta.get(it["card_id"]), ctx=sid) for it in items],
     }
 
 
@@ -141,10 +143,11 @@ def retry_session(con, card_id: int) -> dict:
     ctx = quizgen.card_context(con, card_id, _uid())
     if ctx is None:
         raise QuizError("卡不存在")
-    items = quizgen.ensure_items(con, [ctx], _uid())
     sid = uuid.uuid4().hex
+    items = quizgen.ensure_items(con, [ctx], _uid())
     _SESSIONS[sid] = {"user_id": _uid(), "items": {it["id"]: it for it in items}, "answers": {}}
-    return {"session_id": sid, "size": len(items), "items": [public_item(it, ctx) for it in items]}
+    return {"session_id": sid, "size": len(items),
+            "items": [public_item(it, ctx, ctx=sid) for it in items]}
 
 
 def _session(session_id: str) -> dict:
@@ -230,7 +233,8 @@ def result(con, session_id: str) -> dict:
                 "card_id": it["card_id"],
                 "type": it["type"],
                 "stem": it["stem"],
-                "options": parsed_options,
+                # 呈现顺序必须与作答时一致（QUIZ-014）：同一 ctx=session_id 置换相同。
+                "options": quiztext.display_options(parsed_options, ctx=session_id, item_id=item_id),
                 "my_answer": r["my_answer"],
                 "correct_answer": it["answer_key"],
                 "is_correct": bool(r["is_correct"]),

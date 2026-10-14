@@ -104,6 +104,19 @@ def _db(client):
     return get_db()
 
 
+def _correct(client, item):
+    """该题的**正确选项文本**（QUIZ-014）。
+
+    服务端既不下发 `answer_key`、也不把正确答案固定在某个位置，所以测试必须从库里取；
+    **禁止**再假设「第一个选项就是正确答案」——那正是本 bug 的白纸黑字（会变成随机通过）。
+    """
+    with client.application.app_context():
+        row = _db(client).execute(
+            "SELECT answer_key FROM quiz_items WHERE id=?", (item["id"],)).fetchone()
+    assert row["answer_key"] in item["options"], "正确答案必须逐字出现在下发选项里"
+    return row["answer_key"]
+
+
 # —— QUIZ-001 题型 + 零答案泄漏 ——
 def test_session_types_and_no_answer_key_leak(client):
     d = _start(client)
@@ -290,8 +303,8 @@ def test_grading_module_has_no_network_client():
 def test_wrong_answer_graded_zero_and_correct_one(client):
     d = _start(client)
     it = d["items"][0]
-    good = _answer(client, d["session_id"], it["id"], it["options"][0])
-    assert good["is_correct"] is True and good["correct_answer"] == it["options"][0]
+    good = _answer(client, d["session_id"], it["id"], _correct(client, it))
+    assert good["is_correct"] is True and good["correct_answer"] == _correct(client, it)
     it2 = d["items"][1]
     bad = _answer(client, d["session_id"], it2["id"], "__乱答__")
     assert bad["is_correct"] is False
@@ -302,7 +315,7 @@ def test_wrong_answer_graded_zero_and_correct_one(client):
 def test_score_formula_with_correct_wrong_unanswered(client):
     d = _start(client, size=2)
     it, it2 = d["items"][0], d["items"][1]
-    _answer(client, d["session_id"], it["id"], it["options"][0])       # 对
+    _answer(client, d["session_id"], it["id"], _correct(client, it))       # 对
     # it2 不作答（未答不入分母）
     res = client.get(f"/api/quiz/session/{d['session_id']}/result").get_json()["data"]
     assert res["answered"] == 1 and res["correct"] == 1 and res["score"] == 100
@@ -346,7 +359,7 @@ def test_score_rounding(client):
 def test_repeat_answer_appends_rows_not_overwrite(client):
     d = _start(client)
     it = d["items"][0]
-    for v in (it["options"][0], "__错__", it["options"][0]):
+    for v in (_correct(client, it), "__错__", _correct(client, it)):
         _answer(client, d["session_id"], it["id"], v)
     with client.application.app_context():
         rows = _db(client).execute(
@@ -362,7 +375,7 @@ def test_repeat_answer_appends_rows_not_overwrite(client):
 def test_review_schedule_reused(client):
     d = _start(client)
     it = d["items"][0]
-    body = _answer(client, d["session_id"], it["id"], it["options"][0])
+    body = _answer(client, d["session_id"], it["id"], _correct(client, it))
     assert body["card"]["learn_count"] == 1 and body["card"]["status"] == "reviewing"  # 复用唯一一套调度
 
 
@@ -389,7 +402,7 @@ def test_wrong_book_sorted_desc_and_expandable(client):
 def test_wrong_book_ignores_correct_attempts(client):
     d = _start(client)
     it = d["items"][0]
-    _answer(client, d["session_id"], it["id"], it["options"][0])     # 只对了一次
+    _answer(client, d["session_id"], it["id"], _correct(client, it))     # 只对了一次
     assert client.get("/api/wrong").get_json()["data"]["items"] == []
 
 
@@ -418,7 +431,7 @@ def test_legacy_reveal_still_available(client):
 def test_progress_endpoint(client):
     d = _start(client)
     it = d["items"][0]
-    _answer(client, d["session_id"], it["id"], it["options"][0])
+    _answer(client, d["session_id"], it["id"], _correct(client, it))
     st = client.get(f"/api/quiz/session/{d['session_id']}").get_json()["data"]
     assert st["total"] == 2 and st["answered"] == 1 and st["correct"] == 1 and st["score"] == 100
 

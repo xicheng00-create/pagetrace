@@ -1,8 +1,8 @@
-# DESIGN_SPEC — pagetrace v0.16.2
+# DESIGN_SPEC — pagetrace v0.16.3
 
 | 项 | 值 |
 |---|---|
-| 版本 | 0.16.2（**与 `backend/app.py` 的 `version` 一致** · 版本号诚实规则见 `CLAUDE.md §5`） |
+| 版本 | 0.16.3（**与 `backend/app.py` 的 `version` 一致** · 版本号诚实规则见 `CLAUDE.md §5`） |
 | 日期 | 2026-10-11 |
 | 作者 | pm（Hermes） |
 | 状态图例 | ✅ 已实现并验证 · ⚠️ 部分/未验证（须写原因）· ❌ 未实现 · 🔒 已冻结（不可单方改） |
@@ -464,6 +464,24 @@ data-local/                          pagetrace/
   `test_refresh_keeps_warning_when_llm_still_wrong_type`（LLM 不可用时只 warning，不崩、不删行）。
   - **一次性刷新**：`refresh_stale_quiz_items.py` 的脏题判据新增 `fallback_choice`（`source='fallback'` 且 `type='choice'`），
     同 `id` 覆盖重生；`language` 类刷新后必须为 0（断言），`fallback_choice` 残留只 warning（不许把 LLM 故障当刷新失败）。
+
+- **QUIZ-014（P0，🔒 口径 · v0.16.3 · 2026-10-13 owner 报障后固化）** **选项呈现顺序不得固定（正确答案位置近似均匀）**：
+  ① **根因**：旧提示词骨架把正确项写成第一项（`"options":["选项一",…],"answer_key":"选项一"`）→ 模型照抄位置
+  → 生产库 76 题里 **72 题（94.7%）正确答案都在首位**（选择题 97%），已有作答记录里 93.6% 选 A，等于白送。
+  ② **口径**：题面交付前端的**唯一出口**必须对 `options` 做**按（会话 id, 题 id）播种的确定性置换**：
+  **同一会话内同一题顺序恒定**（结果页必须复现用户当时看到的顺序），**跨会话重新置换**（位置记不住）。
+  打乱是**呈现层保证**：库内 `quiz_items.options` 原样保留，缓存复用与幂等（QUIZ-002/011）不受影响。
+  ③ **不得改判分**：仍按**文本**比对（QUIZ-004），`answer_key` 仍不下发（QUIZ-001）；「选项在第几位」不得成为判分依据。
+  ④ **提示词侧同时拆除位置暗示**：选择题骨架三条选项文字**同形**、`answer_key` 不落在固定位置；规则显式写「禁止总放在第一项」。
+  - **触发点**：`quiztext.display_options`（唯一置换函数）、`services/quiz.public_item`（会话下发）、
+    `services/quiz.result`（结果页逐题解析）、`quiztext.choice_example` + `system_prompt`（骨架与规则）。
+  - **覆盖路径**：会话出题（`start_session`）、错题重刷（`retry_session`）、结果页（`result`）**三条都要过，无旁路**；
+    今后任何新增下发 `options` 的入口都必须走 `display_options`（`public_item` 的 `ctx` 为必填参数，漏传即 TypeError）。
+  - **违规处置**：任一位置占比 > 60%、或三个位置未全部出现、或结果页顺序与作答时不一致 → 缺陷，回滚该 commit。
+  - **断言（可证伪）**：`tests/test_quiz_option_order.py` —— ① 300 题正确答案恒首位 → 呈现位置覆盖 {0,1,2} 且无位置 > 45%；
+  ② 同会话恒定 + 跨会话重排 + 退化输入（<2 项）原样返回；③ 4 题 × 12 会话集成：库内位置全为 0，呈现位置必须散开；
+  ④ 零 `answer_key` / `correct_answer` 泄漏；⑤ 结果页选项顺序 == 作答时顺序。
+  **反证实测**：临时关闭 `display_options` 里的打乱 → ①②③ 三条立即变红（已跑，随后还原）。
 
 ## 3.8 MAST — 掌握度（✅ v0.5.5 实现 · 后端 `services/progress.py` + 前端四级展示）
 
@@ -940,3 +958,6 @@ data-local/                          pagetrace/
 首页上传入口、一次性邀请码与首屏三态引导。
 S1-SQL-SCOPE：非 cards 的已知表名拼接不保证拦截；违规处置：阻断合入。
 S1-DISPLAY-SCOPE：运行时计算属性名不保证拦截；违规处置：阻断合入。
+
+### [0.16.3]
+出题选项呈现顺序按（会话 id, 题 id）确定性置换，正确答案位置不再恒在首位（库内数据与判分口径不变）。
