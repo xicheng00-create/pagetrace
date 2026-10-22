@@ -78,11 +78,16 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 /* —— 顶栏 / 页脚（chrome，全站共用） —— */
 .topbar { position: sticky; top: 0; z-index: 5; background: var(--paper); border-bottom: 1px solid var(--hair); }
 .topbar-inner { max-width: 720px; margin: 0 auto; padding: 16px 22px 12px;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: nowrap; }
+/* UI-021：页头三段（品牌 / 连胜组 / 退出登录）任何态都不许被挤压换行 —— 一律不缩、不折行 */
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; flex: 0 0 auto; white-space: nowrap;
   color: var(--ink); font-weight: 800; font-size: 16px; letter-spacing: .02em; }
 .brand-logo { display: block; width: 26px; height: 26px; }
-.streak { color: var(--green-deep); font-weight: 800; font-size: 13px; letter-spacing: .04em; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.streak { color: var(--green-deep); font-weight: 800; font-size: 13px; letter-spacing: .04em; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+/* UI-021：冰冻说明独占一行（页头之下），绝不塞进页头行内挤压标题与按钮 */
+.topbar-note { max-width: 720px; margin: 0 auto; padding: 0 22px 8px; text-align: right;
+  color: var(--disabled-ink); font-size: 11px; line-height: 1.45; }
+.topbar-note[hidden] { display: none; }
 .streak .clover { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; vertical-align: -3px; }
 .streak .n { font-family: var(--disp); font-size: 17px; }
 .streak.disabled { color: var(--disabled-ink); }   /* 0 天常显只置灰（UI-003），绝不隐藏 */
@@ -351,7 +356,7 @@ a.row.plain:hover { background: var(--card); }
 /* UI-020：冰冻符号与数字必须与连胜那组**同尺寸**（图标同为 18×18 描边 SVG、数字同为 17px 显示字体，禁 emoji 字形） */
 .freeze-chip .flake { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
 .freeze-chip .n { font-family: var(--disp); font-size: 17px; }
-.freeze-chip.disabled,.freeze-note { color: var(--disabled-ink); } .freeze-note { font-size:10px; }
+.freeze-chip.disabled { color: var(--disabled-ink); }
 .freeze-anim { position:fixed; inset:0; z-index:9999; display:grid; place-items:center; background:#dcecf4ee; color:#28647b; font-size:32px; font-weight:800; animation: freeze-in 1.5s ease both; }
 .freeze-anim[hidden] { display:none; } @keyframes freeze-in { 0%{opacity:0;filter:blur(8px)} 20%,80%{opacity:1;filter:blur(0)} 100%{opacity:0} }
 
@@ -372,4 +377,4 @@ a.row.plain:hover { background: var(--card); }
 .auth-form input { width:100%; min-height:48px; padding:10px 12px; color:var(--ink); background:var(--card); border:1px solid var(--hair); border-radius:var(--r-chip); font:inherit; }
 .auth-form label { font-size:.9rem; color:var(--ink-2); }
 .auth-form [role=alert] { color:#9b3026; }
-.logout-btn { margin-left:auto; min-height:40px; padding:6px 12px; color:var(--green-deep); background:transparent; border:1px solid var(--hair); border-radius:var(--r-btn); font:inherit; cursor:pointer; }
+.logout-btn { margin-left:auto; min-height:40px; padding:6px 12px; color:var(--green-deep); background:transparent; border:1px solid var(--hair); border-radius:var(--r-btn); font:inherit; cursor:pointer; flex:0 0 auto; white-space:nowrap; }

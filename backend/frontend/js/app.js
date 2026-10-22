@@ -168,7 +168,7 @@
         const recent = (f.recent || []).map(x => `${esc(x.day)} · 保住 ${x.streak_kept} 天`).join('\n') || '暂无记录';
         window.alert(`初始 3 次；连续达标每 5 天 +1 次。\n漏卡自动消耗；余额不足则连胜清零。\n最近记录：\n${recent}\n当前余额：${f.available || 0}`);
       }; }
-      if (note) note.textContent = f.available ? '' : '冰冻已用完，漏卡将清空连胜';
+      if (note) { const txt = f.available ? '' : '冰冻已用完，漏卡将清空连胜'; note.textContent = txt; note.hidden = !txt; }
       if (f.recent && f.recent.length) { const day=f.recent[0].day, key='review_freeze_seen_'+day;
         if (!localStorage.getItem(key)) { localStorage.setItem(key,'1'); const a=document.getElementById('freezeAnim'); if(a){ a.hidden=false; a.onclick=()=>a.hidden=true; setTimeout(()=>a.hidden=true,1500); } }
       }

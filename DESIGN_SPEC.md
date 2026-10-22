@@ -1,8 +1,8 @@
-# DESIGN_SPEC — pagetrace v0.16.3
+# DESIGN_SPEC — pagetrace v0.16.4
 
 | 项 | 值 |
 |---|---|
-| 版本 | 0.16.3（**与 `backend/app.py` 的 `version` 一致** · 版本号诚实规则见 `CLAUDE.md §5`） |
+| 版本 | 0.16.4（**与 `backend/app.py` 的 `version` 一致** · 版本号诚实规则见 `CLAUDE.md §5`） |
 | 日期 | 2026-10-11 |
 | 作者 | pm（Hermes） |
 | 状态图例 | ✅ 已实现并验证 · ⚠️ 部分/未验证（须写原因）· ❌ 未实现 · 🔒 已冻结（不可单方改） |
