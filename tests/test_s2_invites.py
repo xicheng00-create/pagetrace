@@ -50,7 +50,9 @@ def test_invites_invalid_conflict_expiry_and_one_time(invite_app):
     outsider = invite_app.test_client()
     assert outsider.post('/api/invites').status_code == 401
     assert outsider.get('/api/invites').status_code == 401
-    assert register(outsider, '').status_code == 401
+    # 留空邀请码 → 新建自己的小组（独立客户端，避免占用 outsider）
+    fresh = invite_app.test_client()
+    assert fresh.post('/api/auth/register', json={'username': 'fresh-member', 'password': 'fresh-pass', 'code': ''}).status_code == 200
     assert register(outsider, 'bad-code').status_code == 401
     assert register(outsider, 'x'*257).status_code == 401
     assert register(outsider, 'bad', password='short').status_code == 400
@@ -112,8 +114,8 @@ def test_invited_member_shares_household_and_other_household_is_denied(invite_ap
     # 跨户：搬去另一个 household 后必须拒绝，且不泄露标题
     with invite_app.app_context():
         con = get_db()
-        con.execute("INSERT INTO households(id,name,created_at) VALUES(2,'别家','t')")
-        con.execute("UPDATE users SET household_id=2 WHERE username<>'owner'")
+        other_hid = con.execute("INSERT INTO households(name,created_at) VALUES('别家','t')").lastrowid
+        con.execute("UPDATE users SET household_id=? WHERE username<>'owner'", (other_hid,))
         con.commit()
     denied = member.get(f'/api/chapters?book_id={bid}')
     assert denied.status_code in (403, 404)

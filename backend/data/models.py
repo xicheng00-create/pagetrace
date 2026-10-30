@@ -204,6 +204,12 @@ def migrate_upload(con):
 
 
 def migrate(con) -> None:  # pragma: no cover
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS video_views (user_id INTEGER NOT NULL, video_id INTEGER NOT NULL, "
+        "day TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(user_id,video_id,day))"
+    )
+    _ensure_column(con, "streak_days", "video_done", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(con, "streak_days", "video_target", "INTEGER NOT NULL DEFAULT 5")
     """向后兼容迁移：只允许「加列 / 建索引」，不许删列改名。
 
     新增迁移请追加为幂等的 `ALTER TABLE ... ADD COLUMN`，并先查 PRAGMA table_info

@@ -53,6 +53,30 @@ def payload(data, status=200):
     return jsonify({"code": 0, "data": data}), status
 
 
+@bp.post("/api/videos/<int:video_id>/view")
+def mark_viewed(video_id):
+    """记一次「看过这个视频」（每日每片去重），供每日连胜判定。"""
+    from services.clock import now
+    con = get_db()
+    uid = g.user_id
+    vis = ("b.owner_id IN (SELECT u2.id FROM users u2 "
+           "WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))")
+    row = con.execute(
+        "SELECT v.id FROM card_videos v JOIN concepts x ON x.id=v.concept_id "
+        "JOIN chapters ch ON ch.id=x.chapter_id JOIN books b ON b.id=ch.book_id "
+        "WHERE v.id=? AND " + vis, (video_id, uid)).fetchone()
+    if not row:
+        return jsonify({"code": 404, "msg": "视频不存在"}), 404
+    at = now()
+    con.execute("INSERT OR IGNORE INTO video_views(user_id,video_id,day,created_at) VALUES(?,?,?,?)",
+                (uid, video_id, at.date().isoformat(), at.isoformat()))
+    con.commit()
+    done = con.execute("SELECT COUNT(*) FROM video_views WHERE user_id=? AND day=?",
+                       (uid, at.date().isoformat())).fetchone()[0]
+    from config import BaseConfig
+    return payload({"viewed": True, "today": done, "target": BaseConfig.VIDEO_TASK_TARGET})
+
+
 @bp.get("/api/videos/capability")
 def capability():
     return payload({"available": available(), "reason": reason()})
@@ -136,6 +160,7 @@ def state():
     return payload(
         {
             "available": bool(available()),
+            "video_id": row["id"] if row else None,
             "status": row["status"] if row else None,
             "url": "/media/videos/" + row["file_name"] if row and row["status"] == "ready" else None,
             "duration_s": row["duration_s"] if row else None,

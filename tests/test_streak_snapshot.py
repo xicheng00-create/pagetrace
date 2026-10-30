@@ -34,25 +34,28 @@ def _finish(con, at, count):
         con.execute('INSERT INTO card_reviews(user_id,card_id,learned_at,result,status) VALUES(1,?,?,?,?)',
                     (card_id, at.isoformat(), 'good', 'reviewing'))
         con.execute("UPDATE cards SET status='reviewing', next_review_at='2099-01-01T00:00:00+08:00' WHERE id=?", (card_id,))
+    for vid in range(1, 6):
+        con.execute('INSERT INTO video_views(user_id,video_id,day,created_at) VALUES(1,?,?,?)',
+                    (vid, at.date().isoformat(), at.isoformat()))
     for item_id in range(1, 6):
         con.execute('INSERT INTO quiz_attempts(user_id,item_id,card_id,session_id,my_answer,created_at) VALUES(1,?,?,?,?,?)',
                     (item_id, 1, 's', 'a', (at - timedelta(hours=8)).astimezone(UTC).isoformat()))
     con.commit()
 
 
-def test_28_available_cards_can_complete_streak(tmp_path):
+def test_target_capped_by_available_cards(tmp_path):
     at = datetime(2026, 9, 28, 12, tzinfo=TZ8)
     con = _con(tmp_path, 28)
-    assert tasks.today_task(con, at=at)['review']['target'] == 28
-    _finish(con, at, 28)
+    assert tasks.today_task(con, at=at)['review']['target'] == 20
+    _finish(con, at, 20)
     result = streak.compute(con, at=at)
     assert result['today_met'] is True and result['days'] >= 1
 
 
-def test_full_pool_27_reviews_does_not_meet(tmp_path):
+def test_one_short_of_daily_target_does_not_meet(tmp_path):
     at = datetime(2026, 9, 28, 12, tzinfo=TZ8)
     con = _con(tmp_path, 35)
-    _finish(con, at, 27)
+    _finish(con, at, 19)
     assert streak.compute(con, at=at)['today_met'] is False
 
 

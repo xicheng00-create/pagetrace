@@ -17,6 +17,7 @@ REPO_ROOT = BACKEND_DIR.parent
 sys.path.insert(0, str(BACKEND_DIR))
 load_dotenv(REPO_ROOT / ".env")
 
+from api.account import bp as account_bp  # noqa: E402
 from api.auth import bp as auth_bp  # noqa: E402
 from api.books import bp as books_bp  # noqa: E402
 from api.cards import bp as cards_bp  # noqa: E402
@@ -41,7 +42,7 @@ from api.weak import bp as weak_bp  # noqa: E402
 from config import get_config  # noqa: E402
 from data import db as db_mod  # noqa: E402
 
-version = "0.18.3"
+version = "0.18.15"
 FRONTEND_DIR = BACKEND_DIR / "frontend"
 
 
@@ -71,7 +72,7 @@ def create_app(env: str | None = None) -> Flask:
     db_mod.init_app(app)
     for _bp in (health_bp, auth_bp, invites_bp, subjects_bp, books_bp, chapters_bp, concepts_bp,
                 cards_bp, review_bp, progress_bp, quiz_bp, streak_bp,
-                quote_bp, task_bp, plan_bp, weak_bp, report_bp, scope_bp, upload_bp, videos_bp, family_bp):
+                quote_bp, task_bp, plan_bp, weak_bp, report_bp, scope_bp, upload_bp, videos_bp, family_bp, account_bp):
         app.register_blueprint(_bp)
 
 

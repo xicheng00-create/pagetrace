@@ -11,7 +11,7 @@ REPO_ROOT = BACKEND_DIR.parent
 
 class BaseConfig:
     S2_OWNER_USERNAME = os.environ.get("S2_OWNER_USERNAME", "owner")
-    VERSION = "0.18.3"
+    VERSION = "0.18.15"
     APP_SECRET = os.environ.get("APP_SECRET", "")
     JWT_SECRET = os.environ.get("JWT_SECRET", "") or os.environ.get("APP_SECRET", "") or "development-only-change-me"
     JWT_TTL_HOURS = int(os.environ.get("JWT_TTL_HOURS", "720"))
@@ -62,9 +62,11 @@ class BaseConfig:
 
     # 今日任务（TASK-001）：出题 M 题 = 今日测验目标题数（单点配置，禁止散落硬编码）
     QUIZ_TASK_TARGET = int(os.environ.get("QUIZ_TASK_TARGET", "5"))
+    # 每日连胜口径（2026-10-31 owner 定）：看 5 个视频 + 复习 20 张卡 + 做 5 道题。
+    VIDEO_TASK_TARGET = int(os.environ.get("VIDEO_TASK_TARGET", "5"))
 
     # 每日复习卡片目标（GOAL-001，v0.6.0）：单一真相，默认 30、env 可覆写；前端不得硬编码
-    REVIEW_TASK_TARGET = int(os.environ.get("REVIEW_TASK_TARGET", "30"))
+    REVIEW_TASK_TARGET = int(os.environ.get("REVIEW_TASK_TARGET", "20"))
 
     # DeepSeek（QUIZ-002：出题草稿；判分绝不走此处 —— QUIZ-004）
     DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")

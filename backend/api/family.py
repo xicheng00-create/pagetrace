@@ -4,7 +4,7 @@ from datetime import timedelta
 from auth import current_user_id
 from data.db import get_db
 from flask import Blueprint, request
-from middleware.errors import e_input, ok
+from middleware.errors import e_input, err, ok
 from services.cards import household_coverage_counts
 from services.clock import now
 from services.household import my_household
@@ -56,3 +56,40 @@ def share():
     con.execute("UPDATE users SET share_progress=? WHERE id=?", (int(value), current_user_id()))
     con.commit()
     return ok({"shared": value})
+
+
+@bp.get("/api/family/member/<int:member_id>")
+def member_detail(member_id):
+    """小组成员钻取页：点成员头像看 TA 的进度（仅同户且本人允许展示）。"""
+    con = get_db()
+    uid = current_user_id()
+    household = my_household(con, uid)
+    user = con.execute("SELECT id,username,role,share_progress,household_id FROM users WHERE id=?", (member_id,)).fetchone()
+    if not user or user["household_id"] != household["id"]:
+        return err("NOT_FOUND", "成员不存在", 404)
+    if user["id"] != uid and not user["share_progress"]:
+        return err("FORBIDDEN", "该成员未公开进度", 403)
+    data = {"id": user["id"], "username": user["username"], "role": user["role"], "is_me": user["id"] == uid}
+    data.update(_metrics(con, household["id"], user["id"]))
+    data.update(_today_three(con, user["id"]))
+    data["recent"] = [
+        {"day": r[0], "cards": r[1]}
+        for r in con.execute(
+            "SELECT date(learned_at) d, COUNT(DISTINCT card_id) FROM card_reviews WHERE user_id=? "
+            "GROUP BY d ORDER BY d DESC LIMIT 7", (user["id"],)
+        )
+    ]
+    return ok(data)
+
+
+def _today_three(con, user_id):
+    """今日三项：视频 N / 卡片 N / 刷题 N（与连胜口径同源）。"""
+    from services.tasks import today_task
+    task = today_task(con, user_id=user_id)
+    return {
+        "today": {
+            "video": task["video"],
+            "review": {"target": task["review"]["target"], "done": task["review"]["done"]},
+            "quiz": {"target": task["quiz"]["target"], "done": task["quiz"]["done"]},
+        }
+    }

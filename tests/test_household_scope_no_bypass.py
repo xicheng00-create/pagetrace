@@ -13,6 +13,7 @@ BACKEND = Path(__file__).resolve().parent.parent / 'backend'
 ALLOWLIST = {
     'backend/api/upload.py',
     'backend/services/upload.py',
+    'backend/services/user_state.py',
     'backend/services/jobs.py',
     'backend/services/quota.py',
     'backend/services/worker.py',

@@ -56,7 +56,7 @@ def rebuild_user(db, table, col):
     info = list(db.execute(f"PRAGMA table_info({table})"))
     current_pk = [r[1] for r in sorted((r for r in info if r[5]), key=lambda x: x[5])]
     if table in ("streak_days", "streak_freezes"):
-        defs = ("day TEXT NOT NULL, target INTEGER NOT NULL, review_done INTEGER NOT NULL, quiz_done INTEGER NOT NULL, met INTEGER NOT NULL, updated_at TEXT NOT NULL" if table == "streak_days" else "day TEXT NOT NULL, streak_kept INTEGER NOT NULL, created_at TEXT NOT NULL")
+        defs = ("day TEXT NOT NULL, target INTEGER NOT NULL, review_done INTEGER NOT NULL, quiz_done INTEGER NOT NULL, met INTEGER NOT NULL, updated_at TEXT NOT NULL, video_done INTEGER NOT NULL DEFAULT 0, video_target INTEGER NOT NULL DEFAULT 5" if table == "streak_days" else "day TEXT NOT NULL, streak_kept INTEGER NOT NULL, created_at TEXT NOT NULL")
         db.execute(f"CREATE TABLE {table}_s2(user_id INTEGER NOT NULL REFERENCES users(id),{defs},PRIMARY KEY(user_id,day))")
         names = [r[1] for r in info if r[1] != "user_id"]
         db.execute(f"INSERT INTO {table}_s2(user_id,{','.join(names)}) SELECT user_id,{','.join(names)} FROM {table}")

@@ -144,5 +144,7 @@ def test_attach_production_refused_without_writes(monkeypatch, tmp_path, isolate
             con = get_db()
             with pytest.raises(sqlite3.DatabaseError, match='not authorized'):
                 con.execute('ATTACH DATABASE ? AS other', (str(production),))
-            assert [r[1] for r in con.execute('PRAGMA database_list')] == ['main']
+            entries = [(r[1], r[2]) for r in con.execute('PRAGMA database_list')]
+            assert {n for n, _ in entries} <= {'main', 'temp'}
+            assert all(p in ('', None) for n, p in entries if n == 'temp')
         assert snapshot() == before

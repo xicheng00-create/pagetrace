@@ -63,6 +63,13 @@ def _quiz_done_today(con, day_start_utc_iso: str, user_id=None) -> int:
     return row["n"] or 0
 
 
+def _video_done_today(con, day: str, user_id=None) -> int:
+    """今日看过的视频数（去重；只要播放过即计一次，见 VIDEO-VIEW-001）。"""
+    user_id = user_id or _uid()
+    row = con.execute("SELECT COUNT(*) AS n FROM video_views WHERE user_id=? AND day=?", (user_id, day)).fetchone()
+    return row["n"] or 0
+
+
 def _available(con, at_iso: str, day_start_iso: str, book_ids: list[int] | None = None, user_id=None) -> int:
     """今日可复习总数仅统计当前用户已解锁章。"""
     user_id = user_id or _uid()
@@ -72,9 +79,10 @@ def _available(con, at_iso: str, day_start_iso: str, book_ids: list[int] | None 
 
 
 def today_task(
-    con, at: datetime | None = None, quiz_target: int | None = None, book_ids: list[int] | None = None
+    con, at: datetime | None = None, quiz_target: int | None = None,
+    book_ids: list[int] | None = None, user_id: int | None = None,
 ) -> dict:
-    user_id = _uid()
+    user_id = _uid(user_id)
     at = at or now()
     day_start, day_start_iso = _day_window(at)
     at_iso = iso(at)
@@ -94,8 +102,12 @@ def today_task(
     day_start_utc = day_start.astimezone(UTC).isoformat(timespec="seconds")
     quiz_done = _quiz_done_today(con, day_start_utc, user_id)
 
+    video_target = BaseConfig.VIDEO_TASK_TARGET
+    video_done = _video_done_today(con, day_start.date().isoformat(), user_id)
+
     review_complete = reviewed >= review_target
     quiz_complete = quiz_done >= target
+    video_complete = video_done >= video_target
     return {
         "review": {
             "target": review_target,
@@ -104,5 +116,6 @@ def today_task(
             "reason": "" if review_target > 0 else _EMPTY_REASON,
         },
         "quiz": {"target": target, "done": quiz_done, "complete": quiz_complete},
-        "done": bool(review_complete and quiz_complete),
+        "video": {"target": video_target, "done": video_done, "complete": video_complete},
+        "done": bool(review_complete and quiz_complete and video_complete),
     }

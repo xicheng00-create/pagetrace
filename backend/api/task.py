@@ -19,5 +19,11 @@ def task():
     con = get_db()
     # Read path snapshot: tasks remains pure and streak is the sole persistence point.
     # 连胜快照按「全量目标」记（STREAK-004 保留），今日任务计数按「图书范围」下发（SCOPE-002）。
-    streak.record_day(con)
+    try:
+        streak.record_day(con)
+    except Exception:  # 读路径不得因连胜快照写库失败而 500
+        try:
+            con.rollback()
+        except Exception:
+            pass
     return ok(tasks.today_task(con, book_ids=scope.get_book_scope(con)))

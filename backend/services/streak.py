@@ -54,22 +54,38 @@ def record_day(con, at: datetime | None = None) -> dict:
     uid = _uid()
     task = today_task(con, at=at)
     day = at.astimezone(_tz()).date().isoformat()
-    con.execute(
-        "INSERT INTO streak_days(user_id,day,target,review_done,quiz_done,met,updated_at) "
-        "VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,day) DO UPDATE SET target=excluded.target, "
-        "review_done=excluded.review_done, quiz_done=excluded.quiz_done, met=MAX(streak_days.met, excluded.met), "
-        "updated_at=excluded.updated_at",
-        (
-            uid,
-            day,
-            task["review"]["target"],
-            task["review"]["done"],
-            task["quiz"]["done"],
-            int(task["done"]),
-            iso(at),
-        ),
-    )
-    con.commit()
+    import sqlite3
+    import time as _time
+    for _try in range(6):          # WAL 下并发写会瞬时 SQLITE_BUSY：短退避重试，不让读接口 500
+        try:
+            con.execute(
+                "INSERT INTO streak_days(user_id,day,target,review_done,quiz_done,video_done,video_target,met,updated_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,day) DO UPDATE SET target=excluded.target, "
+                "review_done=excluded.review_done, quiz_done=excluded.quiz_done, video_done=excluded.video_done, "
+                "video_target=excluded.video_target, met=MAX(streak_days.met, excluded.met), "
+                "updated_at=excluded.updated_at",
+            (
+                uid,
+                day,
+                task["review"]["target"],
+                task["review"]["done"],
+                task["quiz"]["done"],
+                task["video"]["done"],
+                task["video"]["target"],
+                int(task["done"]),
+                iso(at),
+            ),
+        )
+            con.commit()
+            break
+        except sqlite3.OperationalError as e:
+            if "locked" not in str(e).lower() or _try == 5:
+                raise
+            try:
+                con.rollback()
+            except Exception:
+                pass
+            _time.sleep(0.05 * (_try + 1))
     return task
 
 

@@ -163,12 +163,22 @@ CREATE INDEX IF NOT EXISTS idx_cards_subject       ON cards(subject_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_card        ON card_reviews(card_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_next        ON card_reviews(next_review_at);
 
+CREATE TABLE IF NOT EXISTS video_views (
+    user_id    INTEGER NOT NULL REFERENCES users(id),
+    video_id   INTEGER NOT NULL REFERENCES card_videos(id) ON DELETE CASCADE,
+    day        TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(user_id,video_id,day)
+);
+
 CREATE TABLE IF NOT EXISTS streak_days (
     user_id INTEGER NOT NULL REFERENCES users(id),
     day TEXT NOT NULL,
     target      INTEGER NOT NULL,
     review_done INTEGER NOT NULL,
     quiz_done   INTEGER NOT NULL,
+    video_done  INTEGER NOT NULL DEFAULT 0,
+    video_target INTEGER NOT NULL DEFAULT 5,
     met         INTEGER NOT NULL,
     updated_at TEXT NOT NULL,
     PRIMARY KEY(user_id,day)
@@ -187,6 +197,7 @@ CREATE INDEX idx_books_tenant ON books(owner_id);
 CREATE INDEX idx_upload_jobs_tenant ON upload_jobs(owner_id);
 CREATE INDEX idx_card_reviews_tenant ON card_reviews(user_id);
 CREATE INDEX idx_quiz_attempts_tenant ON quiz_attempts(user_id);
+CREATE INDEX idx_video_views_tenant ON video_views(user_id);
 CREATE INDEX idx_streak_days_tenant ON streak_days(user_id);
 CREATE INDEX idx_streak_freezes_tenant ON streak_freezes(user_id);
 CREATE INDEX idx_reminder_log_tenant ON reminder_log(user_id);

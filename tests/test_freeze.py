@@ -11,7 +11,7 @@ from services.streak import compute, freeze_status, settle_freezes
 def _db():
  c=sqlite3.connect(':memory:'); c.row_factory=sqlite3.Row; c.executescript(fresh_schema()); c.execute("INSERT INTO users (id, username, password_hash, role, created_at) VALUES(1,'owner','test','owner','t')"); c.execute('CREATE TABLE IF NOT EXISTS streak_freezes(day TEXT PRIMARY KEY,streak_kept INTEGER NOT NULL,created_at TEXT NOT NULL)'); return c
 
-def _day(c,d,met): c.execute('INSERT OR REPLACE INTO streak_days VALUES(1,?,?,?,?,?,?)',(d,30,30,5,met,d+'T23:00:00+08:00'))
+def _day(c,d,met): c.execute('INSERT OR REPLACE INTO streak_days(user_id,day,target,review_done,quiz_done,met,updated_at) VALUES(1,?,?,?,?,?,?)',(d,20,20,5,met,d+'T23:00:00+08:00'))
 def _at(d): return datetime.fromisoformat(d+'T12:00:00+08:00')
 def _used(c): return c.execute('select count(*) from streak_freezes').fetchone()[0]
 def _rows(c): return c.execute('select day,streak_kept from streak_freezes order by day').fetchall()

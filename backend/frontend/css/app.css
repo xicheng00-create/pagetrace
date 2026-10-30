@@ -382,3 +382,14 @@ a.row.plain:hover { background: var(--card); }
 .video-concept{margin-top:18px}.video-concept h3{margin:0 0 8px;font-size:15px;color:var(--ink-2,.55)}.back-link{display:inline-block;padding:10px 14px;margin:10px 0 0}
 .video-sheet .btn{color:#FBF8F0;border-color:rgba(251,248,240,.42);background:rgba(251,248,240,.08);min-width:112px}.video-sheet .sub{color:rgba(251,248,240,.86)}.video-request{margin-top:.75rem}.video-slot video{width:100%;margin-top:.75rem}
 .video-sheet-body{display:grid;gap:1rem;justify-items:center;max-width:min(92vw,900px)}
+
+.taskline { display:flex; justify-content:space-between; gap:12px; margin:6px 0; font-size:15px; }
+.taskline b { font-weight:600; }
+
+.avatar { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px;
+  border-radius:50%; background:#3B5D50; color:#FBF8F0; font-weight:600; font-size:15px;
+  text-decoration:none; margin-right:10px; }
+.avatar-lg { width:56px; height:56px; font-size:22px; margin-right:14px; }
+.acct-head { display:flex; align-items:center; gap:4px; margin:8px 0 18px; }
+.stack { display:flex; flex-direction:column; gap:10px; max-width:360px; margin-top:10px; }
+.h3 { font-size:16px; margin:18px 0 4px; }

@@ -121,6 +121,8 @@
         if (state.url) {
           status.textContent = '讲解视频';
           holder.innerHTML = `<video controls playsinline preload="metadata" src="${esc(state.url)}"></video>`;
+          // 每日连胜口径：播放即计「看过 1 个视频」（每日每片去重）
+          if (state.video_id) api.post('/api/videos/' + state.video_id + '/view', {}).catch(() => {});
           if (timer) { window.clearInterval(timer); timer = null; }
           if (button) button.textContent = '讲解';
           return;

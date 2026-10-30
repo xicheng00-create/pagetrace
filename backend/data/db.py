@@ -89,8 +89,12 @@ def get_db() -> sqlite3.Connection:
         con.row_factory = sqlite3.Row
         if isolated_run():
             _isolated_connection(con)
+        # REQ-STATE-01：每连接一张 _mine（当前用户的卡片状态），未刷新时视为全部未学。
+        # 必须在隔离检查之后创建：TEMP 表会让 PRAGMA database_list 多出 temp 库。
+        con.execute("CREATE TEMP TABLE IF NOT EXISTS _mine(card_id INTEGER PRIMARY KEY,"
+                    " status TEXT, learn_count INTEGER, next_review_at TEXT)")
         con.execute("PRAGMA journal_mode=WAL")
-        con.execute("PRAGMA busy_timeout=5000")
+        con.execute("PRAGMA busy_timeout=15000")
         con.execute("PRAGMA foreign_keys=ON")
         g.db = con
     return g.db

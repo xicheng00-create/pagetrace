@@ -1,6 +1,7 @@
 from auth import SENTINEL_PASSWORD_HASH, issue_token, password_hash, require_user, verify_password
 from data.db import get_db
 from flask import Blueprint, current_app, jsonify, make_response, request
+from services.household import join_household_of, new_household
 
 bp = Blueprint("auth", __name__)
 COOKIE = "access_token"
@@ -16,10 +17,11 @@ def bootstrap():
     password = str(data.get("password", ""))
     if not username or len(password) < 8:
         return jsonify({"code": 400, "msg": "账号必填，密码至少 8 位"}), 400
-    con.execute(
+    uid = con.execute(
         "INSERT INTO users(username,password_hash,role,created_at) VALUES(?,?,'owner',datetime('now'))",
         (username, password_hash(password)),
-    )
+    ).lastrowid
+    con.execute("UPDATE users SET household_id=? WHERE id=?", (new_household(con, f"{username} 的家"), uid))
     con.commit()
     return jsonify({"code": 0, "data": {"username": username, "role": "owner"}})
 
@@ -102,9 +104,23 @@ def register():
     code = str(data.get('code', ''))
     if not username or len(username) > 80 or len(password) < 8:
         return jsonify({'code': 400, 'msg': '账号必填（最多 80 字），密码至少 8 位'}), 400
-    if not code or len(code) > 256:
+    if len(code) > 256:
         return jsonify({'code': 401, 'msg': '邀請碼無效'}), 401
     con = get_db()
+    if not code:
+        # 无邀请码 → 自建一个全新小组（REQ-FAM-06）；组内成员互相可见进度。
+        try:
+            uid = con.execute(
+                "INSERT INTO users(username,password_hash,role,created_at,share_progress) "
+                "VALUES(?,?,'owner',datetime('now'),1)",
+                (username, password_hash(password)),
+            ).lastrowid
+        except sqlite3.IntegrityError:
+            return jsonify({'code': 409, 'msg': '账号已存在'}), 409
+        con.execute("UPDATE users SET household_id=? WHERE id=?",
+                    (new_household(con, f"{username} 的小组"), uid))
+        con.commit()
+        return jsonify({'code': 0, 'data': {'id': uid, 'username': username, 'household_created': True}})
     # Reserve the write transaction before validating/consuming; concurrent claimants serialize.
     con.execute('BEGIN IMMEDIATE')
     invite = next((row for row in con.execute('SELECT * FROM invites')
@@ -130,6 +146,7 @@ def register():
     except sqlite3.IntegrityError:
         con.rollback()
         return jsonify({'code': 409, 'msg': '账号已存在'}), 409
+    join_household_of(con, uid, invite['created_by'])
     con.execute('UPDATE invites SET used_by=? WHERE id=?', (uid, invite['id']))
     con.commit()
     user = {'id': uid, 'username': username, 'role': 'member'}

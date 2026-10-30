@@ -227,7 +227,8 @@
     </a>`;
 
     const invitesEntry = `<a class="row" href="#/invites"><span class="l"><b>邀請碼</b><span>邀請他人建立獨立帳號</span></span></a>`;
-    const familyEntry = `<a class="row" href="#/family"><span class="l"><b>家庭</b><span>与家人共享书架，各自记录进度</span></span></a>`;
+    const familyEntry = `<a class="row" href="#/family"><span class="l"><b>小组</b><span>同一书架，各自学习，互相看得到进度</span></span></a>`;
+    const spaceEntry = `<a class="row" href="#/account"><span class="l"><b>个人空间</b><span>我的进度 · 账号与密码</span></span></a>`;
     if (!subs.length) {
       html(emptyHTML({
         label: '空 · Empty',
@@ -236,7 +237,7 @@
         howto: '怎么产生内容：在知识库侧跑 <code>export_cards.py</code> 导出契约文件，'
           + '再跑本 app 的 <code>backend/scripts/ingest_kb.py</code> 入库；首章入库即解锁，卡就会出现在这里。',
         href: null,
-      }) + `<div class="rowlist">${familyEntry}${uploadEntry}${invitesEntry}</div>`);
+      }) + `<div class="rowlist">${spaceEntry}${familyEntry}${uploadEntry}${invitesEntry}</div>`);
       return;
     }
 
@@ -251,9 +252,11 @@
     const taskBlock = task ? `
       <div class="sectitle">今日任务</div>
       <div class="rowlist rise" style="--d:200">
+        ${taskRow('看视频', task.video, '#/videos', '#/videos', '个')}
         ${taskRow('今日复习', task.review, '#/review', '#/review?extra=1', '张')}
-        ${taskRow('出题', task.quiz, '#/quiz', '#/quiz', '题')}
-      </div>` : '';
+        ${taskRow('刷题', task.quiz, '#/quiz', '#/quiz', '题')}
+      </div>
+      <p class="sub">连胜口径：看视频 ${task.video.done}/${task.video.target} · 复习 ${task.review.done}/${task.review.target} · 刷题 ${task.quiz.done}/${task.quiz.target}（三项都达标才算今天）</p>` : '';
 
     // 目标 0（退化态）：主行动常显 + 置灰 + 写明原因（UI-003），绝不隐藏
     const primary = goal > 0
@@ -283,6 +286,9 @@
       <div class="rowlist grid rise" style="--d:280">
         <a class="row" href="#/scope">
           <span class="l"><b>图书</b><span>${esc(scopeLabel)}</span></span>
+        </a>
+        <a class="row" href="#/account">
+          <span class="l"><b>个人空间</b><span>我的进度 · 账号与密码</span></span>
         </a>
         ${familyEntry}
         ${uploadEntry}
@@ -623,13 +629,77 @@
   }
   async function familyPage() {
     const d=(await api.get('/api/family')).data, me=d.members.find(x=>x.id===d.me.id);
-    html(`<h1 class="display">家庭</h1><p class="sub">${esc(d.household.name)} · 同一书架，各自学习</p><section class="block"><h2 class="h2">我的进度</h2><p>今日 ${me.today_cards} · 覆盖率 ${me.coverage}% · 连续 ${me.streak} 天</p><label><input id="familyShare" type="checkbox" ${d.me.shared?'checked':''}> 允许家人查看我的学习进度</label></section><div class="rowlist">${d.members.filter(x=>x.id!==d.me.id).map(x=>`<article class="block"><h2>${esc(x.username)}</h2>${x.shared?`<p>今日 ${x.today_cards} · 覆盖率 ${x.coverage}% · 连续 ${x.streak} 天</p><p>最近活跃：${esc(x.last_active||'—')}</p>`:'<p>对方未共享</p>'}</article>`).join('')||'<p class="sub">家庭成员尚未加入</p>'}</div>`);
+    let mine={};
+    try { mine=(await api.get('/api/family/member/'+me.id)).data; } catch(e) { mine={}; }
+    const three=mine.today||{};
+    const bar=(label,obj)=>obj?`<p class="taskline"><b>${label}</b> ${obj.done}/${obj.target}</p>`:'';
+    const members=d.members.filter(x=>x.id!==d.me.id);
+    html(`<h1 class="display">小组</h1><p class="sub">${esc(d.household.name)} · 同一书架，各自学习</p>
+      <div class="rowlist"><a class="row" href="#/account"><span class="l"><b>个人空间</b><span>我的进度 · 账号与密码</span></span></a></div>
+      <section class="block"><h2 class="h2">我的进度</h2>
+        ${bar('看视频',three.video)}${bar('复习卡片',three.review)}${bar('刷题',three.quiz)}
+        <p class="sub">覆盖率 ${me.coverage}% · 连续 ${me.streak} 天 · 今日卡片 ${me.today_cards}</p>
+        <label><input id="familyShare" type="checkbox" ${d.me.shared?'checked':''}> 允许成员查看我的学习进度</label></section>
+      <div class="rowlist">${members.map(x=>`<a class="row" href="#/member/${x.id}"><span class="l"><b>${esc(x.username)}</b><span>${x.shared?`今日卡片 ${x.today_cards} · 覆盖率 ${x.coverage}% · 连续 ${x.streak} 天`:'未共享进度'}</span></span></a>`).join('')||'<p class="sub">小组还没有其他成员</p>'}</div>`);
     document.getElementById('familyShare').onchange=async e=>{await api.post('/api/family/share',{shared:e.target.checked}); await familyPage();};
   }
 
+  async function accountPage() {
+    const d = (await api.get('/api/account')).data;
+    const t = d.today || {};
+    const bar = (label, obj) => obj ? `<p class="taskline"><b>${label}</b> ${obj.done}/${obj.target}${obj.target > 0 && obj.done >= obj.target ? ' ✅' : ''}</p>` : '';
+    html(`<a class="back-link" href="#/">← 返回首页</a>
+      <div class="acct-head"><span class="avatar avatar-lg">${esc((d.username || '我').slice(0, 1).toUpperCase())}</span>
+        <div><h1 class="display">个人空间</h1><p class="sub sub-name">${esc(d.username)}</p><p class="sub">${esc(d.role === 'owner' ? '小组创建者' : '小组成员')} · ${esc(d.household)}</p></div></div>
+      <section class="block"><h2 class="h2">我的进度</h2>
+        ${bar('看视频', t.video)}${bar('复习卡片', t.review)}${bar('刷题', t.quiz)}
+        <p class="sub">覆盖率 ${d.coverage}% · 连续 ${d.streak} 天 · ${t.done ? '今天已达成' : '今天还没达成'}</p></section>
+      <section class="block"><h2 class="h2">账号设置</h2>
+        <label><input id="acctShare" type="checkbox" ${d.shared ? 'checked' : ''}> 允许小组成员查看我的进度</label>
+        <h3 class="h3">修改密码</h3>
+        <form id="pwForm" class="stack">
+          <input id="pwOld" type="password" autocomplete="current-password" placeholder="当前密码">
+          <input id="pwNew" type="password" autocomplete="new-password" placeholder="新密码（≥8 位）">
+          <input id="pwNew2" type="password" autocomplete="new-password" placeholder="再输一次新密码">
+          <button class="btn" type="submit">保存新密码</button>
+          <p id="pwMsg" class="sub" hidden></p>
+        </form></section>`);
+    document.getElementById('acctShare').onchange = async e => {
+      await api.post('/api/family/share', {shared: e.target.checked}); await accountPage();
+    };
+    document.getElementById('pwForm').addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const msg = document.getElementById('pwMsg');
+      const cur = document.getElementById('pwOld').value, nw = document.getElementById('pwNew').value, nw2 = document.getElementById('pwNew2').value;
+      msg.hidden = false;
+      if (nw !== nw2) { msg.textContent = '两次输入的新密码不一致'; return; }
+      try {
+        await api.post('/api/account/password', {current_password: cur, new_password: nw});
+        msg.textContent = '密码已修改，下次登录用新密码';
+        ev.target.reset();
+      } catch (err) { msg.textContent = err.message || '修改失败'; }
+    });
+  }
+
+  async function memberPage(id) {
+    const d=(await api.get('/api/family/member/'+id)).data;
+    const t=d.today||{};
+    const bar=(label,obj)=>obj?`<p class="taskline"><b>${label}</b> ${obj.done}/${obj.target}${obj.done>=obj.target?' ✅':''}</p>`:'';
+    html(`<a class="back-link" href="#/family">← 返回小组</a>
+      <h1 class="display">${esc(d.username)}</h1>
+      <p class="sub">${d.is_me?'这是我自己':'小组成员'}</p>
+      <section class="block"><h2 class="h2">今日三项</h2>
+        ${bar('看视频',t.video)}${bar('复习卡片',t.review)}${bar('刷题',t.quiz)}</section>
+      <section class="block"><h2 class="h2">总览</h2>
+        <p class="sub">覆盖率 ${d.coverage}% · 连续 ${d.streak} 天 · 最近活跃：${esc(d.last_active||'—')}</p></section>
+      <section class="block"><h2 class="h2">近 7 天</h2>
+        ${(d.recent||[]).map(r=>`<p>${esc(r.day)} · ${r.cards} 张</p>`).join('')||'<p class="sub">暂无记录</p>'}</section>`);
+  }
+
+
   function route() {
-    refreshStreak();
-    refreshVideoCapability();  // 每次导航刷新页头连胜（不阻断渲染）
+    try { refreshStreak(); } catch (_) {}          // 页头刷新失败不得阻断页面渲染
+    try { refreshVideoCapability(); } catch (_) {}  // 同上
     const h = location.hash || '#/';
     if (h !== routeBefore) {
       const stack = readStack();
@@ -646,6 +716,8 @@
     try {
       if (name === '') return home();
       if (name === 'family') return familyPage();
+      if (name === 'member' && id) return memberPage(id);
+      if (name === 'account') return accountPage();
       if (name === 'videos' && id) return videoDetail(id);
       if (name === 'videos') {
         const params = new URLSearchParams(h.split('?')[1] || '');
@@ -686,7 +758,7 @@
       if (el) el.textContent = d.available ? '已就绪 · 点开按书 → 章 → 概念看' : (d.reason || '暂不可用');
     }).catch(() => {});
   }
-  window.addEventListener('hashchange', () => { try { route(); } catch (_) {} });
+  window.addEventListener('hashchange', () => { try { route(); } catch (e) { console.error('route failed', e); } });
   window.App = { route, home, refreshStreak };
   // 共享给 review.js / quiz.js / wrong.js（同一设计语法，避免各写一份状态块）
   window.UI = { esc, loading, errorHTML, emptyHTML, crumb, mLab, mWidth };

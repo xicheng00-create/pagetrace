@@ -45,6 +45,14 @@ def _review(con, card_ids, when=NOW):
     con.commit()
 
 
+def _videos(con, n=5, when=NOW):
+    """每日连胜口径要求看 5 个视频（VIDEO-VIEW-001）。"""
+    for vid in range(1, n + 1):
+        con.execute("INSERT INTO video_views(user_id,video_id,day,created_at) VALUES(1,?,?,?)",
+                    (vid, when.date().isoformat(), iso(when)))
+    con.commit()
+
+
 def _quiz(con, n, when=NOW):
     """插入 n 道题 + n 条今日作答（distinct item_id）。"""
     utc = when.astimezone(UTC).isoformat(timespec="seconds")
@@ -78,12 +86,16 @@ def test_partial_review_target_stable(tmp_path):
 
 
 def test_done_when_review_and_quiz_reach_targets(tmp_path):
+    """三合一：复习达标 + 出题达标 + 视频 5 个 → 当日 done。"""
     con, ids = _seed(tmp_path / "t.sqlite3")
     _review(con, ids)          # 复习 3
     _quiz(con, 10)             # 测验 10
     r = tasks.today_task(con, at=NOW, quiz_target=10)
     assert r["review"] == {"target": 3, "done": 3, "complete": True, "reason": ""}
     assert r["quiz"] == {"target": 10, "done": 10, "complete": True}
+    assert r["video"]["complete"] is False   # 还没看视频 → 不算达成
+    _videos(con)
+    r = tasks.today_task(con, at=NOW, quiz_target=10)
     assert r["done"] is True
     con.close()
 
@@ -112,6 +124,7 @@ def test_quiz_target_configurable(tmp_path):
     con, ids = _seed(tmp_path / "t.sqlite3")
     _review(con, ids)
     _quiz(con, 3)
+    _videos(con)
     assert tasks.today_task(con, at=NOW, quiz_target=3)["done"] is True
     assert tasks.today_task(con, at=NOW, quiz_target=4)["done"] is False
     con.close()
@@ -176,14 +189,14 @@ def _seed_pool(db, *, due=0, new=0):
     return con, ids
 
 
-def test_goal_target_capped_at_30_and_due_first(tmp_path):
-    """到期 1 + 新卡足 → target=30（min 上限），且队列首张为到期。"""
+def test_goal_target_capped_and_due_first(tmp_path):
+    """到期 1 + 新卡足 → target=REVIEW_TASK_TARGET（20），且队列首张为到期。"""
     con, ids = _seed_pool(tmp_path / "g.sqlite3", due=1, new=35)
     r = tasks.today_task(con, at=NOW, quiz_target=10)
-    assert r["review"]["target"] == 30 and r["review"]["reason"] == ""
+    assert r["review"]["target"] == 20 and r["review"]["reason"] == ""
     q = queue.today_queue(con, target=r["review"]["target"], user_id=1)
     assert q["due"][0]["card_id"] == ids[0]
-    assert len(q["due"]) + len(q["new"]) == 30
+    assert len(q["due"]) + len(q["new"]) == 20
     con.close()
 
 

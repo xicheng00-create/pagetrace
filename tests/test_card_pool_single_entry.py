@@ -40,6 +40,15 @@ ALLOW.update(
 )
 ALLOW.update(
     {
+        ("services/coverage.py", "household_coverage_counts"): {"FROM"},
+        ("services/card_state_queries.py", "card_status"): {"FROM"},
+        ("services/user_state.py", "_FILL"): {"JOIN"},
+        ("services/user_state.py", "_LEGACY"): {"FROM"},
+        ("services/user_state.py", "ensure_state"): {"FROM", "JOIN"},
+    }
+)
+ALLOW.update(
+    {
         ("services/video_cards.py", "unlocked_card"): {"FROM", "JOIN"},
         ("services/video_cards.py", "concept_card_ids"): {"FROM"},
         ("services/video_cards.py", "linked_cards"): {"JOIN"},
