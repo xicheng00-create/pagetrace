@@ -202,17 +202,38 @@
   // —— 首页（HOME-001 格言 + TASK-001/002 任务 + MAST-002 学科进度；DATA-005 汇总口径） ——
   async function home() {
     html(loading());
+    try {
+      return await renderHome();
+    } catch (e) {
+      // 401（未登录/会话过期）不得停在「加载中…」：交给错误提示或登录面板
+      if (/请先登录|401/.test(String(e && e.message))) {
+        html(`<p class="muted">请先登录后查看</p>`);
+        window.dispatchEvent(new CustomEvent('auth-required'));
+        return;
+      }
+      html(errorHTML(e.message || String(e)));
+    }
+  }
+
+  async function renderHome() {
     const [subsRes, quoteRes, taskRes, reportRes, scopeRes, uploadRes] = await Promise.all([
       api.get('/api/subjects'),
       api.get('/api/quote').catch(() => ({ data: { text: '今日复习' } })),
-      api.get('/api/task').catch(() => ({ data: null })),
+      (window.__taskStub ? Promise.resolve({ data: window.__taskStub }) : api.get('/api/task')).catch(() => ({ data: null })),  // __taskStub：ui-audit 注入两态用
       api.get('/api/report').catch(() => ({ data: null })),
       api.get('/api/scope').catch(() => ({ data: null })),
       api.get('/api/upload/quota').catch(() => ({ data: { can_upload: false, reason: '暂时无法读取上传额度，请稍后重试' } })),
     ]);
     const subs = subsRes.data.subjects || [];
     const quote = (quoteRes.data && quoteRes.data.text) || '今日复习';
-    const task = taskRes.data;
+    // 三项目标都可能缺字段（旧后端 / 测试注入）：缺项按退化态处理，绝不因取 .done 抛错白屏
+    const ZERO = { done: 0, target: 0, complete: false, reason: '今日无任务' };
+    const taskRaw = taskRes.data || {};
+    const task = {
+      video: taskRaw.video || ZERO,
+      review: taskRaw.review || ZERO,
+      quiz: taskRaw.quiz || ZERO,
+    };
     const rep = reportRes.data;
     // SCOPE-003：首页「图书」入口常显当前范围文案（只读后端 label，前端零计算）
     const scopeLabel = (scopeRes.data && scopeRes.data.label) || '图书：全部';
@@ -640,7 +661,7 @@
         ${bar('看视频',three.video)}${bar('复习卡片',three.review)}${bar('刷题',three.quiz)}
         <p class="sub">覆盖率 ${me.coverage}% · 连续 ${me.streak} 天 · 今日卡片 ${me.today_cards}</p>
         <label><input id="familyShare" type="checkbox" ${d.me.shared?'checked':''}> 允许成员查看我的学习进度</label></section>
-      <div class="rowlist">${members.map(x=>`<a class="row" href="#/member/${x.id}"><span class="l"><b>${esc(x.username)}</b><span>${x.shared?`今日卡片 ${x.today_cards} · 覆盖率 ${x.coverage}% · 连续 ${x.streak} 天`:'未共享进度'}</span></span></a>`).join('')||'<p class="sub">小组还没有其他成员</p>'}</div>`);
+      <div class="rowlist">${members.map(x=>`<a class="row" href="#/member/${x.id}"><span class="l"><b>${esc(x.username)}</b><span>${x.shared?`今日卡片 ${x.today_cards} · 覆盖率 ${x.coverage}% · 连续 ${x.streak} 天`:'对方未共享进度'}</span></span></a>`).join('')||'<p class="sub">小组还没有其他成员</p>'}</div>`);
     document.getElementById('familyShare').onchange=async e=>{await api.post('/api/family/share',{shared:e.target.checked}); await familyPage();};
   }
 

@@ -9,7 +9,7 @@ import pytest
 FRONTEND = Path(__file__).resolve().parents[1] / 'backend/frontend/js'
 sys.path.insert(0, str(FRONTEND.parents[1]))
 MATH_ALLOW = {
-    'app.js': {'pct', 'starsOf', 'coverageRing', 'taskRow', 'home'},
+    'app.js': {'pct', 'starsOf', 'coverageRing', 'taskRow', 'home', 'renderHome'},
     'flashcard.js': {'touchMove', 'mouseMove', 'finishDrag'},
     'quiz.js': {'head'},
 }

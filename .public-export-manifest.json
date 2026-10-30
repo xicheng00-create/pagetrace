@@ -145,6 +145,7 @@
   "tests/test_chapter_title.py",
   "tests/test_clock_source.py",
   "tests/test_concepts.py",
+  "tests/test_concurrent_writes.py",
   "tests/test_dedup.py",
   "tests/test_draft_isolation.py",
   "tests/test_family_api.py",

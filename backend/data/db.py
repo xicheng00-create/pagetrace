@@ -85,7 +85,9 @@ def get_db() -> sqlite3.Connection:
         parent = os.path.dirname(path)
         if parent:
             os.makedirs(parent, exist_ok=True)
-        con = sqlite3.connect(path)
+        # isolation_level="IMMEDIATE"：事务一开始就取写锁，避免「读事务升级为写」
+        # 触发 SQLITE_BUSY_SNAPSHOT（busy_timeout 对此无效，会立即 database is locked）。
+        con = sqlite3.connect(path, timeout=15, isolation_level="IMMEDIATE")
         con.row_factory = sqlite3.Row
         if isolated_run():
             _isolated_connection(con)

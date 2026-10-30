@@ -42,7 +42,7 @@ from api.weak import bp as weak_bp  # noqa: E402
 from config import get_config  # noqa: E402
 from data import db as db_mod  # noqa: E402
 
-version = "0.18.15"
+version = "0.18.19"
 FRONTEND_DIR = BACKEND_DIR / "frontend"
 
 
@@ -75,6 +75,25 @@ def create_app(env: str | None = None) -> Flask:
                 quote_bp, task_bp, plan_bp, weak_bp, report_bp, scope_bp, upload_bp, videos_bp, family_bp, account_bp):
         app.register_blueprint(_bp)
 
+
+    # 写请求串行化：waitress 多线程下 SQLite 的「读事务升级为写」会拿 SQLITE_BUSY_SNAPSHOT，
+    # busy_timeout 治不了（立即返回 database is locked）。写操作排进一把进程级锁，读不阻塞。
+    import threading
+
+    from flask import g as _g
+    _write_lock = threading.Lock()
+
+    @app.before_request
+    def _serialize_writes():
+        if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            _write_lock.acquire()
+            _g._write_lock_held = True
+
+    @app.teardown_request
+    def _release_write_lock(_exc=None):
+        if getattr(_g, "_write_lock_held", False):
+            _g._write_lock_held = False
+            _write_lock.release()
 
     from auth import require_user, unauthorized
     @app.before_request
