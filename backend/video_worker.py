@@ -138,7 +138,7 @@ def _render(app, video):
         ]
 
         def run(cmd, timeout):
-            result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=timeout)
+            result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, errors="replace", timeout=timeout)
             if result.returncode:
                 raise RuntimeError((result.stdout + "\n" + result.stderr)[-600:])
 
@@ -170,6 +170,7 @@ def _render(app, video):
             ],
             capture_output=True,
             text=True,
+            errors="replace",
             timeout=30,
         )
         if probe.returncode:
