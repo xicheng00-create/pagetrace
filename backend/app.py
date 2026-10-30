@@ -35,11 +35,12 @@ from api.streak import bp as streak_bp  # noqa: E402
 from api.subjects import bp as subjects_bp  # noqa: E402
 from api.task import bp as task_bp  # noqa: E402
 from api.upload import bp as upload_bp  # noqa: E402
+from api.videos import bp as videos_bp  # noqa: E402
 from api.weak import bp as weak_bp  # noqa: E402
 from config import get_config  # noqa: E402
 from data import db as db_mod  # noqa: E402
 
-version = "0.16.4"
+version = "0.17.0"
 FRONTEND_DIR = BACKEND_DIR / "frontend"
 
 
@@ -69,7 +70,7 @@ def create_app(env: str | None = None) -> Flask:
     db_mod.init_app(app)
     for _bp in (health_bp, auth_bp, invites_bp, subjects_bp, books_bp, chapters_bp, concepts_bp,
                 cards_bp, review_bp, progress_bp, quiz_bp, streak_bp,
-                quote_bp, task_bp, plan_bp, weak_bp, report_bp, scope_bp, upload_bp):
+                quote_bp, task_bp, plan_bp, weak_bp, report_bp, scope_bp, upload_bp, videos_bp):
         app.register_blueprint(_bp)
 
 

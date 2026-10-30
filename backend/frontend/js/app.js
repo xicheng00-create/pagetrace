@@ -285,6 +285,7 @@
         </a>
         ${uploadEntry}
         ${invitesEntry}
+        <span class="row is-disabled" aria-disabled="true"><span class="l"><b>视频讲解</b><span id="videoCapability">正在检查视频能力</span></span></span>
         <a class="row" href="#/quiz">
           <span class="l"><b>出题自测</b><span>选择题 / 是非题 · 自动判分</span></span>
         </a>
@@ -565,9 +566,55 @@
             .map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
           <div class="cardfoot">${statusBadge(c)}
             <span class="mlabel">已学 <span class="tnum">${c.learn_count}</span> 次 · ${esc(c.source)}</span></div>
+          <button class="btn video-request" data-video-card="${c.id}" type="button">讲解视频</button>
+          <div class="video-slot" data-video-slot="${c.id}"></div>
         </article>`).join('')}`);
+    app.querySelectorAll('[data-video-card]').forEach((button) => button.addEventListener('click', async () => {
+      const id=button.dataset.videoCard, slot=app.querySelector(`[data-video-slot="${id}"]`);
+      const state=(await api.get(`/api/videos/state?card_id=${id}`)).data;
+      if (!state.available) { button.disabled=true; button.setAttribute('aria-disabled','true'); slot.textContent=state.reason||'未检测到 VideoKit（设置 VIDEOKIT_HOME）'; return; }
+      if (state.status==='ready' && state.url) { slot.innerHTML=`<video controls playsinline preload="metadata" src="${esc(state.url)}"></video>`; return; }
+      if (state.status==='failed') { slot.textContent='生成失败：'+(state.error||'未知错误'); return; }
+      await api.post('/api/videos/request',{card_id:Number(id)});
+      slot.textContent='已加入生成队列，完成后可在此播放';
+    }));
   }
 
+  async function videoList(level = 'books', selectedBook = '', selectedChapter = '') {
+    const response = await api.get('/api/videos');
+    const books = new Map();
+    for (const row of response.data.items || []) {
+      if (!books.has(row.book_title)) books.set(row.book_title, new Map());
+      const chapters = books.get(row.book_title);
+      if (!chapters.has(row.chapter_name)) chapters.set(row.chapter_name, new Map());
+      const concepts = chapters.get(row.chapter_name);
+      if (!concepts.has(row.concept_name)) concepts.set(row.concept_name, []);
+      concepts.get(row.concept_name).push(row);
+    }
+    let tree = '';
+    if (level === 'books') {
+      for (const [bookName, chapters] of books) tree += `<a class="row" href="#/videos?book=${encodeURIComponent(bookName)}">${esc(bookName)} · ${chapters.size} 章</a>`;
+    } else if (level === 'chapters') {
+      const chapters = books.get(selectedBook);
+      if (chapters) for (const [chapterName, concepts] of chapters) tree += `<a class="row" href="#/videos?book=${encodeURIComponent(selectedBook)}&chapter=${encodeURIComponent(chapterName)}">${esc(chapterName)} · ${concepts.size} 个概念</a>`;
+    } else {
+      const concepts = books.get(selectedBook)?.get(selectedChapter);
+      if (concepts) for (const [conceptName, videos] of concepts) {
+        tree += `<section class="video-concept"><h3>${esc(conceptName)}</h3>`;
+        for (const video of videos) tree += `<a class="row" href="#/videos/${video.video_id}">${esc(video.title || conceptName)} · ${video.status === 'queued' ? '已加入生成队列，完成后可在此播放' : '播放'}</a>`;
+        tree += '</section>';
+      }
+    }
+    html(`<h1 class="display">视频讲解</h1>${level !== 'books' ? '<a class="btn" href="#/videos">返回书目</a>' : ''}${tree || '<p class="sub">还没有讲解视频</p><p class="sub">在卡片详情中请求生成视频。</p>'}`);
+  }
+  async function videoDetail(id) {
+    const response = await api.get(`/api/videos/${id}`);
+    const video = response.data;
+    const player = video.status === 'ready'
+      ? `<video controls playsinline preload="metadata" src="${esc('/media/videos/' + video.file_name)}"></video>`
+      : '<p>已加入生成队列，完成后可在此播放</p>';
+    html(`<h1 class="display">${esc(video.title || '讲解视频')}</h1>${player}<div class="video-cards">${(video.cards || []).map((card) => `<article class="block"><b>${esc(card.title || card.front)}</b>${card.is_core ? '<span>触发卡</span>' : ''}</article>`).join('')}</div>`);
+  }
   function route() {
     refreshStreak();  // 每次导航刷新页头连胜（不阻断渲染）
     const h = location.hash || '#/';
@@ -585,6 +632,13 @@
     const id = m ? m[2] : null;
     try {
       if (name === '') return home();
+      if (name === 'videos' && id) return videoDetail(id);
+      if (name === 'videos') {
+        const params = new URLSearchParams(h.split('?')[1] || '');
+        return params.has('chapter')
+          ? videoList('concepts', params.get('book'), params.get('chapter'))
+          : params.has('book') ? videoList('chapters', params.get('book')) : videoList();
+      }
       if (name === 'subjects') return subjectList();
       if (name === 'subject' && id) return subject(id);
       if (name === 'book' && id) return book(id);
@@ -607,6 +661,7 @@
     }
   }
 
+  api.get('/api/videos/capability').then(r=>{const e=document.getElementById('videoCapability'); if(e)e.textContent=r.data.available?'可选依赖已就绪':r.data.reason;}).catch(()=>{});
   window.addEventListener('hashchange', () => { try { route(); } catch (_) {} });
   window.App = { route, home, refreshStreak };
   // 共享给 review.js / quiz.js / wrong.js（同一设计语法，避免各写一份状态块）

@@ -3,6 +3,7 @@
 这些断言是**反向**的：不只检查「该有的在」，更检查「不该有的不在」——
 旧 accent、横向滚动容器、首页技术文案、版本漂移，出现即失败。
 """
+
 import re
 import sys
 from pathlib import Path
@@ -58,8 +59,8 @@ def test_frontend_asset_version_is_real_and_consistent():
     cache = re.search(r"const CACHE = '([^']+)'", sw).group(1)
     assert cache == f"review-v{v}"
     versions = set(re.findall(r"\?v=([0-9.]+)", idx))
-    assert versions == {v}, versions           # 三件套自洽
-    assert v in _changelog_versions(), v       # 不是拍脑袋写的版本
+    assert versions == {v}, versions  # 三件套自洽
+    assert v in _changelog_versions(), v  # 不是拍脑袋写的版本
     # 前端版本必须 == app version（前端落后 = 旧壳吞修复；领先 = 漏 app 侧 bump）
     app = _app_version()
     assert v == app, (v, app)
@@ -73,7 +74,9 @@ def test_version_three_places_consistent():
     assert f"### [{v}]" in (ROOT / "DESIGN_SPEC.md").read_text(encoding="utf-8")
     # 封面版本也从这里管住（2026-10-11 实测漂移：正文到 0.15.6、封面还停 0.15.5）
     cover = (ROOT / "DESIGN_SPEC.md").read_text(encoding="utf-8").splitlines()[0]
-    assert re.search(r"\bv([0-9]+\.[0-9]+\.[0-9]+)\b", cover).group(1) == v, f"DESIGN_SPEC 封面版本未同步：{cover}"
+    assert re.search(r"\bv([0-9]+\.[0-9]+\.[0-9]+)\b", cover).group(1) == v, (
+        f"DESIGN_SPEC 封面版本未同步：{cover}"
+    )
 
 
 def test_pagefoot_version_matches_shell():
@@ -90,7 +93,7 @@ def test_pagefoot_version_matches_shell():
     m = re.search(r'<span class="ver" id="ver">v([0-9.]+)</span>', idx)
     assert m, "页脚 #ver 静态版本串不得缺失"
     assert m.group(1) == v, (m.group(1), v)
-    assert v in _changelog_versions(), v     # 不是拍脑袋写的版本
+    assert v in _changelog_versions(), v  # 不是拍脑袋写的版本
     app = _app_version()
     assert v == app, (v, app)
 
@@ -108,9 +111,21 @@ def test_accent_locked_to_green():
 def test_tokens_present():
     """UI-006：四语义槽与字号尺度必须写进 :root。"""
     css = _css()
-    for token in ("--paper", "--paper-2", "--card", "--ink", "--ink-2", "--muted",
-                  "--hair", "--green", "--green-deep", "--green-tint", "--orange",
-                  "--disp", "--body"):
+    for token in (
+        "--paper",
+        "--paper-2",
+        "--card",
+        "--ink",
+        "--ink-2",
+        "--muted",
+        "--hair",
+        "--green",
+        "--green-deep",
+        "--green-tint",
+        "--orange",
+        "--disp",
+        "--body",
+    ):
         assert token in css, token
     assert "17.5px" in css and "tabular-nums" in css
     assert "prefers-reduced-motion" in css
@@ -138,8 +153,16 @@ def test_new_assets_registered_in_shell():
     """新增前端资产必须同时出现在 index.html 与 sw.js 预缓存（否则线上卡旧壳）。"""
     sw = _frontend("sw.js")
     idx = _frontend("index.html")
-    for asset in ("js/app.js", "js/review.js", "js/quiz.js", "js/flashcard.js", "js/wrong.js",
-                  "js/plan.js", "js/weak.js", "js/report.js"):
+    for asset in (
+        "js/app.js",
+        "js/review.js",
+        "js/quiz.js",
+        "js/flashcard.js",
+        "js/wrong.js",
+        "js/plan.js",
+        "js/weak.js",
+        "js/report.js",
+    ):
         assert asset in idx and asset in sw, asset
 
 
@@ -164,12 +187,12 @@ def test_flashcard_gesture_hooks():
         assert hook in js, hook
     for cls in ("out-r", "out-l", "kc-in", "dragging"):
         assert cls in js, cls
-    assert "THRESHOLD = 70" in js          # 阈值 70px 不许漂移
+    assert "THRESHOLD = 70" in js  # 阈值 70px 不许漂移
     css = _css()
     for cls in (".kc-card.dragging", ".kc-card.out-r", ".kc-card.out-l", ".kc-card.kc-in"):
         assert cls in css, cls
-    assert "拖动卡片" in js                  # 卡片下方提示行
-    assert "backface-visibility" in css      # 3D 翻转
+    assert "拖动卡片" in js  # 卡片下方提示行
+    assert "backface-visibility" in css  # 3D 翻转
     # reduced-motion 下动画全关（全局过渡/动画预算）
     assert "prefers-reduced-motion" in css
 
@@ -189,13 +212,14 @@ def test_flashcard_direction_not_reversed():
     assert "decide(p.dx > 0)" in js
     review = _frontend("js/review.js")
     assert "右滑 = 记得 · 左滑 = 忘了" in review
-    assert "'good' : 'again'" in review          # 复习卡：记得 → good / 忘了 → again
+    assert "'good' : 'again'" in review  # 复习卡：记得 → good / 忘了 → again
     # UI-014（v0.5.7 补漏）：**按钮顺序必须与手势方向一致** —— 左「忘了」/ 右「记得」
     block = review.split('class="actions', 1)[1].split("</div>", 1)[0]
-    assert block.index('id="k-again"') < block.index('id="k-good"'), \
+    assert block.index('id="k-again"') < block.index('id="k-good"'), (
         "闪卡自评按钮顺序反了：应左「忘了」(k-again) 右「记得」(k-good)"
-    assert 'class="btn" id="k-again"' in block          # 忘了：hairline，不做主行动
-    assert 'class="btn solid" id="k-good"' in block      # 记得：accent 实心，主行动在右
+    )
+    assert 'class="btn" id="k-again"' in block  # 忘了：hairline，不做主行动
+    assert 'class="btn solid" id="k-good"' in block  # 记得：accent 实心，主行动在右
     # 视觉顺序不得被 CSS 反转（否则 DOM 顺序失去意义）
     act = re.search(r"\.actions\s*\{[^}]*\}", _css())
     assert act, "app.css 缺 .actions 规则"
@@ -213,14 +237,24 @@ def test_quiz_micro_label_uses_book_not_stem():
 def test_header_streak_always_present():
     """段⑤C/D：页头连胜常显（0 天也显示，不按条件隐藏）。"""
     idx = _frontend("index.html")
-    assert 'id="streak"' in idx and 'class="clover"' in idx and '连胜' in idx
+    assert 'id="streak"' in idx and 'class="clover"' in idx and "连胜" in idx
     assert "连续" not in idx
 
 
 def test_no_nagging_copy():
     """段⑤C / TASK-001：禁止催促类文案（「不催」这类反向声明不算催促）。"""
-    bad_phrases = ("快来", "打卡", "提醒我", "该复习了", "别断更", "你已落后",
-                   "今天必须", "坚持打卡", "别落下", "落后了")
+    bad_phrases = (
+        "快来",
+        "打卡",
+        "提醒我",
+        "该复习了",
+        "别断更",
+        "你已落后",
+        "今天必须",
+        "坚持打卡",
+        "别落下",
+        "落后了",
+    )
     for name in ("index.html", "js/app.js", "js/quiz.js", "js/review.js", "js/wrong.js"):
         text = _frontend(name)
         for bad in bad_phrases:
@@ -230,12 +264,11 @@ def test_no_nagging_copy():
 def test_home_daily_quote_and_task_hooks():
     """HOME-001 / TASK-001：首页格言走 /api/quote（回落「今日复习」），任务清单有「今日复习 / 出题」两子项。"""
     appjs = _frontend("js/app.js")
-    assert "/api/quote" in appjs and "今日复习" in appjs          # 格言数据源 + 空回落
+    assert "/api/quote" in appjs and "今日复习" in appjs  # 格言数据源 + 空回落
     assert "/api/task" in appjs
     assert "今日任务" in appjs and "今日复习" in appjs and "出题" in appjs
     assert "开始复习" in appjs
     # 格言不编造作者：前端不出现「—— 某某」式署名拼接
-    idx = _frontend("index.html")
     assert "author" not in appjs and "作者" not in appjs
 
 
@@ -250,12 +283,17 @@ def test_home_quiz_entry_copy_updated():
 def test_mastery_bar_and_percent_four_levels():
     """MAST-002 / MAST-004：四级均有进度条 + 百分比 + 分子分母；卡级四态标签来自后端（前端零映射）。"""
     appjs = _frontend("js/app.js")
-    assert 'class="bar"' in appjs and "mLab(" in appjs             # 进度条 + 百分比文案单点
+    assert 'class="bar"' in appjs and "mLab(" in appjs  # 进度条 + 百分比文案单点
     assert "掌握度 —" in appjs
     assert "state_label" in appjs
     assert "掌握度 ${m.m}%" in appjs
     assert "覆盖率 ${o.coverage}%" in appjs and "已学 ${o.learned} / 共 ${o.cards_total}" in appjs
-    assert "num ||" not in appjs and "den ||" not in appjs and "mastery.pct" not in appjs and "started" not in appjs
+    assert (
+        "num ||" not in appjs
+        and "den ||" not in appjs
+        and "mastery.pct" not in appjs
+        and "started" not in appjs
+    )
     css = _css()
     assert ".cm.on" in css and ".meter" in css
 
@@ -264,13 +302,13 @@ def test_wrong_book_page_hooks():
     """WRONG-001：错题本页（#/wrong）—— 路由可达、空态有话说、可展开对照、可一键重刷。"""
     appjs = _frontend("js/app.js")
     assert "name === 'wrong'" in appjs and "WrongView" in appjs
-    assert 'href="#/wrong"' in appjs                              # 首页入口
+    assert 'href="#/wrong"' in appjs  # 首页入口
     wrong = _frontend("js/wrong.js")
     assert "/api/wrong" in wrong and "/api/wrong/retry" in wrong
-    assert "还没有错题" in wrong                                   # 空态有话说（不得空白）
-    assert "正确答案" in wrong and "我的答案" in wrong              # 可展开对照
-    assert "重刷" in wrong                                        # 一键重刷
-    assert "去出题自测" in wrong                                   # 指路
+    assert "还没有错题" in wrong  # 空态有话说（不得空白）
+    assert "正确答案" in wrong and "我的答案" in wrong  # 可展开对照
+    assert "重刷" in wrong  # 一键重刷
+    assert "去出题自测" in wrong  # 指路
     # 重刷复用测验作答 UI（不另写一套判分/作答逻辑）
     assert "QuizView.run" in wrong
 
@@ -278,8 +316,8 @@ def test_wrong_book_page_hooks():
 def test_quiz_page_polish_hooks():
     """第 4 节：测验页进度（第 x / N 题）+ 选项三态（选中 / 判对 / 判错）+ 结果页得分。"""
     quiz = _frontend("js/quiz.js")
-    assert "第 " in quiz and "题" in quiz                          # 进度文案
-    assert "opt.sel" not in quiz or "sel" in quiz                 # 选中态类
+    assert "第 " in quiz and "题" in quiz  # 进度文案
+    assert "opt.sel" not in quiz or "sel" in quiz  # 选中态类
     assert "sel" in quiz
     assert "q-next" in quiz
     assert "q-submit" not in quiz
@@ -295,15 +333,15 @@ def test_plan_page_hooks():
     """PLAN-001：路由可达、间隔文案**来自后端字段**（前端零计算、不写死）、空态有话说。"""
     appjs = _frontend("js/app.js")
     assert "name === 'plan'" in appjs and "PlanView" in appjs
-    assert 'href="#/plan"' in appjs                              # 首页入口
+    assert 'href="#/plan"' in appjs  # 首页入口
     plan = _frontend("js/plan.js")
     assert "/api/plan" in plan
-    assert "when_label" in plan                                  # 间隔读数后端字段
+    assert "when_label" in plan  # 间隔读数后端字段
     # 前端不得自行拼/写死间隔：不得出现 '天后' / '小时后' 字符串字面量（注释里的示例不算）
     assert "'天后'" not in plan and '"天后"' not in plan
     assert "'小时后'" not in plan and '"小时后"' not in plan
-    assert "还没有" in plan                                       # 空态有话说
-    assert "#/review" in plan                                     # 已到期 → 直接作答（复用复习卡路径）
+    assert "还没有" in plan  # 空态有话说
+    assert "#/review" in plan  # 已到期 → 直接作答（复用复习卡路径）
 
 
 def test_weak_page_hooks():
@@ -313,9 +351,9 @@ def test_weak_page_hooks():
     assert 'href="#/weak"' in appjs
     weak = _frontend("js/weak.js")
     assert "/api/weak" in weak
-    assert "错" in weak and "张卡" in weak                        # 错次 · 涉及卡数
-    assert "details" in weak and "chap" in weak                   # 点章可展开
-    assert "还没有" in weak                                        # 空态有话说
+    assert "错" in weak and "张卡" in weak  # 错次 · 涉及卡数
+    assert "details" in weak and "chap" in weak  # 点章可展开
+    assert "还没有" in weak  # 空态有话说
 
 
 def test_report_page_and_no_client_side_accuracy():
@@ -323,14 +361,16 @@ def test_report_page_and_no_client_side_accuracy():
     appjs = _frontend("js/app.js")
     assert "name === 'report'" in appjs and "ReportView" in appjs
     assert 'href="#/report"' in appjs
-    assert "/api/report" in appjs                                 # 首页一行摘要复用同一接口字段
+    assert "/api/report" in appjs  # 首页一行摘要复用同一接口字段
     rep = _frontend("js/report.js")
     assert "/api/report" in rep and "accuracy" in rep
-    assert "'—'" in rep                                           # 0 作答 → —（不得显示 0%）
-    assert "还没有" in rep                                         # 空态有话说
+    assert "'—'" in rep  # 0 作答 → —（不得显示 0%）
+    assert "还没有" in rep  # 空态有话说
     # 反断言：前端任何 JS 不得出现 Math.round(...correct...) 式自算正确率
-    all_js = "\n".join(_frontend(f"js/{n}") for n in (
-        "app.js", "review.js", "quiz.js", "wrong.js", "plan.js", "weak.js", "report.js"))
+    all_js = "\n".join(
+        _frontend(f"js/{n}")
+        for n in ("app.js", "review.js", "quiz.js", "wrong.js", "plan.js", "weak.js", "report.js")
+    )
     assert not re.search(r"Math\.round\([^)]*correct", all_js), "前端不得自算正确率"
 
 
@@ -377,12 +417,14 @@ def test_subject_page_lists_books_only():
     assert "books[0]" not in appjs
     assert "siblings" not in appjs
     subj = _cut(appjs, "async function subject(id)", "\n  // 书级深链")
-    assert "<h1" in subj and 'class="display"' in subj      # 学科页必须有 h1
-    assert "books.map(bookRow)" in subj                     # 只渲染「书的按钮」列表
-    assert "details.chap" not in subj                       # 学科页不得出现章行
+    assert "<h1" in subj and 'class="display"' in subj  # 学科页必须有 h1
+    assert "books.map(bookRow)" in subj  # 只渲染「书的按钮」列表
+    assert "details.chap" not in subj  # 学科页不得出现章行
     row = _cut(appjs, "function bookRow(b)", "\n\n  // 已解锁章展开")
-    assert 'href="#/book/' in row                           # 每本书可点进书页
-    assert 'class="bar"' in row and "mCount(" in row        # 书级进度条 + 百分比（mCount = 已学/共 + 状态，环星已表达双数）
+    assert 'href="#/book/' in row  # 每本书可点进书页
+    assert (
+        'class="bar"' in row and "mCount(" in row
+    )  # 书级进度条 + 百分比（mCount = 已学/共 + 状态，环星已表达双数）
 
 
 def test_knowledge_cards_naming():
@@ -402,12 +444,12 @@ def test_task_row_actions():
     appjs = _frontend("js/app.js")
     row = _cut(appjs, "function taskRow(", "\n  // —— 首页")
     assert "去完成" in row and "再来一组" in row
-    assert "tick" in row and "complete" in row              # 完成态绿勾（.tick.on）
-    assert "t.target" in row and "reason" in row            # 目标/原因来自后端
-    assert re.search(r"\b30\b", row) is None                # 不硬编码字面阈值
-    assert "disabled" in row                                # 退化态常显 + 置灰（UI-003）
+    assert "tick" in row and "complete" in row  # 完成态绿勾（.tick.on）
+    assert "t.target" in row and "reason" in row  # 目标/原因来自后端
+    assert re.search(r"\b30\b", row) is None  # 不硬编码字面阈值
+    assert "disabled" in row  # 退化态常显 + 置灰（UI-003）
     home = _cut(appjs, "async function home()", "\n  // —— 今日清单")
-    assert "#/review?extra=1" in home                       # 复习完成态 → 再来一组（额外组）
+    assert "#/review?extra=1" in home  # 复习完成态 → 再来一组（额外组）
 
 
 def test_no_hardcoded_goal():
@@ -417,7 +459,7 @@ def test_no_hardcoded_goal():
     assert re.search(r"开始复习\s*30", appjs) is None
     home = _cut(appjs, "async function home()", "\n  // —— 今日清单")
     assert "task.review.target" in home
-    assert re.search(r"开始复习 \$\{goal\}", home)           # 数字来自变量，非字面量
+    assert re.search(r"开始复习 \$\{goal\}", home)  # 数字来自变量，非字面量
 
 
 MASTERY_NOTE = "掌握度 = 已学卡掌握度平均（卡级 = 50% 状态分 + 50% 作答正确率）；覆盖率 = 已学卡 ÷ 全部卡"
@@ -427,17 +469,32 @@ def test_card_status_labels_from_backend():
     """MAST-003：前端只读后端 `status_label`；不得出现 status→中文 映射表（四态零映射）。"""
     for n in ("app.js", "review.js", "wrong.js", "plan.js"):
         assert "status_label" in _frontend(f"js/{n}"), n
-    alljs = "\n".join(_frontend(f"js/{n}") for n in (
-        "app.js", "review.js", "quiz.js", "wrong.js", "plan.js", "weak.js",
-        "report.js", "flashcard.js"))
-    for pat in (r"['\"]new['\"]\s*:\s*['\"]未学习", r"['\"]learning['\"]\s*:\s*['\"]学习中",
-                r"['\"]review['\"]\s*:\s*['\"]复习中", r"['\"]mastered['\"]\s*:\s*['\"]已掌握",
-                r"status\s*===?\s*['\"]\w+['\"][^\n;]*['\"](未学习|学习中|复习中|已掌握)['\"]"):
+    alljs = "\n".join(
+        _frontend(f"js/{n}")
+        for n in (
+            "app.js",
+            "review.js",
+            "quiz.js",
+            "wrong.js",
+            "plan.js",
+            "weak.js",
+            "report.js",
+            "flashcard.js",
+        )
+    )
+    for pat in (
+        r"['\"]new['\"]\s*:\s*['\"]未学习",
+        r"['\"]learning['\"]\s*:\s*['\"]学习中",
+        r"['\"]review['\"]\s*:\s*['\"]复习中",
+        r"['\"]mastered['\"]\s*:\s*['\"]已掌握",
+        r"status\s*===?\s*['\"]\w+['\"][^\n;]*['\"](未学习|学习中|复习中|已掌握)['\"]",
+    ):
         assert not re.search(pat, alljs), pat
     # 旧两态（已掌握/未掌握）与四态中文一律不得在前端出现 —— 唯一例外是 MAST-004 的掌握度公式文案
     # `已掌握 {num} / 已学 {den}`（数值只读后端）与口径说明句原文；把这两处扣掉后必须零残留。
-    rest = re.sub(r"已掌握\s*<span[^>]*>\$\{[^}]*\}</span>\s*/\s*已学\s*<span[^>]*>\$\{[^}]*\}</span>",
-                  "", alljs).replace(MASTERY_NOTE, "")
+    rest = re.sub(
+        r"已掌握\s*<span[^>]*>\$\{[^}]*\}</span>\s*/\s*已学\s*<span[^>]*>\$\{[^}]*\}</span>", "", alljs
+    ).replace(MASTERY_NOTE, "")
     for lab in ("已掌握", "未掌握", "未学习", "学习中"):
         assert lab not in rest, lab
 
@@ -445,7 +502,7 @@ def test_card_status_labels_from_backend():
 # —— v0.6.0 CSS 工艺与可读性（UI-017 / A11Y-001）——
 def _hex_rgb(h: str):
     h = h.strip().lstrip("#")
-    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return tuple(int(h[i : i + 2], 16) for i in (0, 2, 4))
 
 
 def _lin(c: float) -> float:
@@ -469,7 +526,7 @@ def test_muted_contrast_aa():
     muted = re.search(r"--muted:\s*(#[0-9A-Fa-f]{6})", css).group(1)
     paper = re.search(r"--paper:\s*(#[0-9A-Fa-f]{6})", css).group(1)
     ratio = _contrast(_hex_rgb(muted), _hex_rgb(paper))
-    assert muted.lower() != "#8c8371"                     # 旧值（3.5:1）不得回归
+    assert muted.lower() != "#8c8371"  # 旧值（3.5:1）不得回归
     assert ratio >= 4.5, f"--muted {muted} vs --paper {paper} = {ratio:.2f}:1 < 4.5"
 
 
@@ -477,7 +534,8 @@ def test_motion_craft_floor():
     """UI-017：① 缓动不得过冲（贝塞尔 y 控制点 ≤1）；② 进度条填充禁 `transition: width`。"""
     css = _css()
     beziers = re.findall(
-        r"cubic-bezier\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)", css)
+        r"cubic-bezier\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)", css
+    )
     assert beziers, "未找到 cubic-bezier（动效预算应有一条作者化曲线）"
     for x1, y1, x2, y2 in beziers:
         assert float(y1) <= 1 and float(y2) <= 1, f"贝塞尔过冲：cubic-bezier({x1},{y1},{x2},{y2})"
@@ -514,11 +572,11 @@ def test_mastery_formula_visible():
     assert "已学 ${o.learned} / 共 ${o.cards_total} · ${o.state_label}" in appjs
     # 渲染环星的三个层级（首页学科块 / 学科页书行两分支 / 书页 .meter）用 mCount
     assert "mCount(s.mastery)" in appjs
-    assert appjs.count("mCount(m)") >= 2        # bookRow 解锁/未解锁两分支
+    assert appjs.count("mCount(m)") >= 2  # bookRow 解锁/未解锁两分支
     assert "mCount(bm)" in appjs
     # 未渲染环星的层级（学科列表 / 章行）仍用 mText（保留双数）
-    assert "mText(s.mastery)" in appjs          # 学科列表 .row.prog
-    assert "mText(c.mastery)" in appjs          # 章行 .chap summary
+    assert "mText(s.mastery)" in appjs  # 学科列表 .row.prog
+    assert "mText(c.mastery)" in appjs  # 章行 .chap summary
     # mCount 模板自身不得包含掌握度/覆盖率（只留已学/共 + 状态）
     mcount = _cut(appjs, "function mCount(m)", "\n  // UI-018")
     assert "掌握度" not in mcount and "覆盖率" not in mcount
@@ -527,14 +585,15 @@ def test_mastery_formula_visible():
 def test_concept_row_status_from_backend():
     """MAST-005：概念行状态一律读后端 `status_label`（前端零映射、零计数、零拼接）。"""
     appjs = _frontend("js/app.js")
-    assert appjs.count("c.status_label") >= 2          # 章展开 + `#/chapter/<id>` 两个渲染点
+    assert appjs.count("c.status_label") >= 2  # 章展开 + `#/chapter/<id>` 两个渲染点
     # 反断言①：计数与多态文案由后端拼好 → 前端不碰 `status_counts`、不自行统计
     assert "status_counts" not in appjs
     assert re.search(r"filter\([^)]*status[^)]*\)\.length", appjs) is None
     assert re.search(r"\.status\s*\+\+", appjs) is None
     # 反断言②：四态中文与「无卡」只来自后端（扣掉 MAST-004 公式与口径说明句后必须零残留）
-    rest = re.sub(r"已掌握\s*<span[^>]*>\$\{[^}]*\}</span>\s*/\s*已学\s*<span[^>]*>\$\{[^}]*\}</span>",
-                  "", appjs).replace(MASTERY_NOTE, "")
+    rest = re.sub(
+        r"已掌握\s*<span[^>]*>\$\{[^}]*\}</span>\s*/\s*已学\s*<span[^>]*>\$\{[^}]*\}</span>", "", appjs
+    ).replace(MASTERY_NOTE, "")
     for lab in ("未学习", "学习中", "复习中", "已掌握"):
         assert lab not in rest, lab
     # 「无卡」要按**整串字面量**判（正文里「今日无卡可复习」是任务文案，不是状态标签）
@@ -550,11 +609,11 @@ def test_coverage_ring_hooks():
     底环 `--hair`、进度环 `--green`；三处渲染点都在（首页学科块 / 学科页书行 / 书页）。"""
     appjs = _frontend("js/app.js")
     assert "stroke-dasharray" in appjs and "coverageRing" in appjs
-    assert 'role="img"' in appjs and "aria-label=\"覆盖率" in appjs
+    assert 'role="img"' in appjs and 'aria-label="覆盖率' in appjs
     # 三处渲染点（与 UI-018 覆盖路径一致）：首页学科块 / 学科页书行（bookRow 两分支）/ 书页
-    assert "masteryGauges(s.mastery)" in appjs        # 首页学科块 .progline
-    assert "masteryGauges(m)" in appjs                # 学科页书行 bookRow（解锁/未解锁两分支）
-    assert "masteryGauges(bm)" in appjs               # 书页 .meter
+    assert "masteryGauges(s.mastery)" in appjs  # 首页学科块 .progline
+    assert "masteryGauges(m)" in appjs  # 学科页书行 bookRow（解锁/未解锁两分支）
+    assert "masteryGauges(bm)" in appjs  # 书页 .meter
     # 环心文本含 %（数字只读后端 coverage，前端零自算）
     assert 'class="ring-num"' in appjs and ">${c}%</text>" in appjs
     css = _css()
@@ -571,16 +630,16 @@ def test_mastery_stars_hooks():
     `stars = round(m/20, 1)` 单点；「★」用 SVG（非字符/emoji）。"""
     appjs = _frontend("js/app.js")
     assert "starsOf" in appjs and "Math.round((m.m / 20) * 10) / 10" in appjs
-    assert "clipPath" in appjs and "clip-path" in appjs          # 遮罩裁剪，非圆点近似
+    assert "clipPath" in appjs and "clip-path" in appjs  # 遮罩裁剪，非圆点近似
     assert "starsFilledWidth" in appjs
     # m 缺失 → 「—」；常显一行「掌握度 86% · 4.3★」（★ = 内联 SVG）
     assert 'class="stars none"' in appjs and "掌握度 —" in appjs
     assert 'class="star-ico"' in appjs
-    assert "★" not in appjs                                      # 字符星禁止（只用 SVG）
+    assert "★" not in appjs  # 字符星禁止（只用 SVG）
     css = _css()
     assert ".stars-bg" in css and ".stars-fg" in css
-    assert re.search(r"\.stars-bg path\s*\{[^}]*--hair", css)    # 空星浅色
-    assert re.search(r"\.stars-fg path\s*\{[^}]*--green", css)   # 实星 accent 绿
+    assert re.search(r"\.stars-bg path\s*\{[^}]*--hair", css)  # 空星浅色
+    assert re.search(r"\.stars-fg path\s*\{[^}]*--green", css)  # 实星 accent 绿
 
 
 def test_scope_hooks():
@@ -630,6 +689,7 @@ def test_quiz_session_does_not_override_backend_size():
     assert "const SIZE" not in quiz and "size: 10" not in quiz
     assert "api.post('/api/quiz/session')" in quiz
 
+
 def test_freeze_chip_and_overlay_are_present():
     page = _frontend("index.html")
     assert 'id="freezeChip"' in page and 'id="freezeCount"' in page and 'id="freezeAnim"' in page
@@ -665,23 +725,38 @@ def test_freeze_icon_matches_streak_source():
 
 
 def test_upload_notice_text():
-    root = Path(__file__).resolve().parents[1] / 'backend/frontend'
-    html = (root / 'index.html').read_text()
-    js = (root / 'js/upload.js').read_text()
+    root = Path(__file__).resolve().parents[1] / "backend/frontend"
+    html = (root / "index.html").read_text()
+    js = (root / "js/upload.js").read_text()
     assert 'id="uploadNotice"' in html
-    assert '上传的文本会发送给模型服务商，用于生成知识卡片。' in html
-    assert '.hidden' not in js and 'display: none' not in js and '不会外传' not in js
+    assert "上传的文本会发送给模型服务商，用于生成知识卡片。" in html
+    assert ".hidden" not in js and "display: none" not in js and "不会外传" not in js
 
 
 def test_upload_drafts_backend_fields():
-    root = Path(__file__).resolve().parents[1] / 'backend/frontend'
-    upload = (root / 'js/upload.js').read_text()
-    drafts = (root / 'js/drafts.js').read_text()
-    assert 'd.label' in upload and 'd.progress' in upload and 'd.stage' in upload
-    assert '600' not in upload and 'type="checkbox"' not in upload + drafts
+    root = Path(__file__).resolve().parents[1] / "backend/frontend"
+    upload = (root / "js/upload.js").read_text()
+    drafts = (root / "js/drafts.js").read_text()
+    assert "d.label" in upload and "d.progress" in upload and "d.stage" in upload
+    assert "600" not in upload and 'type="checkbox"' not in upload + drafts
     assert 'id="draftConfirm"' in drafts and 'class="primary"' in drafts
 
 
 def test_cover_version_rejects_prefixes():
-    for cover in ('# v0.15.6', '# v0.15.70'):
-        assert re.search(r"\bv([0-9]+\.[0-9]+\.[0-9]+)\b", cover).group(1) != '0.15.7'
+    for cover in ("# v0.15.6", "# v0.15.70"):
+        assert re.search(r"\bv([0-9]+\.[0-9]+\.[0-9]+)\b", cover).group(1) != "0.15.7"
+
+
+def test_video_frontend_contracts():
+    js = _frontend("js/app.js") + _frontend("js/review.js")
+    review = _frontend("js/review.js")
+    assert "已加入生成队列，完成后可在此播放" in js
+    assert "讲解视频" in js and "视频讲解" in js and "还没有讲解视频" in js
+    assert "split(' · ')" not in js
+    assert "removeAttribute('src')" in js and "playsinline" in js
+    assert "#/videos/${video.video_id}" in js and "videoDetail(id)" in js
+    assert "requested_at" in js and "已等待 ${seconds} 秒" in review
+    assert review.index("class=\"kc-scene\"") < review.index("class=\"btn video-review\"")
+    worker = (ROOT / "backend" / "video_worker.py").read_text()
+    assert "JSON.stringify" not in worker
+    assert "--neighbours" in worker and "、" in worker

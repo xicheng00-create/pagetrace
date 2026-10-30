@@ -2,6 +2,7 @@
 
 铁律：表结构变更写这里（幂等 SQL），不手工改库；生产库 data-local/review.sqlite3。
 """
+
 from datetime import UTC, datetime, timedelta, timezone
 
 from config import BaseConfig
@@ -173,15 +174,17 @@ def _ensure_column(con, table, column, definition):
 
 def migrate_upload(con):
     """UP-010：不改任何 cards / review / quiz 历史。"""
-    _ensure_column(con, 'books', 'book_hash', 'TEXT')
-    _ensure_column(con, 'books', 'source', "TEXT NOT NULL DEFAULT 'kb'")
-    conflicts = con.execute("SELECT id,book_hash FROM books WHERE book_hash IN "
-                            "(SELECT book_hash FROM books WHERE book_hash IS NOT NULL "
-                            "GROUP BY book_hash HAVING COUNT(*)>1) ORDER BY id").fetchall()
+    _ensure_column(con, "books", "book_hash", "TEXT")
+    _ensure_column(con, "books", "source", "TEXT NOT NULL DEFAULT 'kb'")
+    conflicts = con.execute(
+        "SELECT id,book_hash FROM books WHERE book_hash IN "
+        "(SELECT book_hash FROM books WHERE book_hash IS NOT NULL "
+        "GROUP BY book_hash HAVING COUNT(*)>1) ORDER BY id"
+    ).fetchall()
     if conflicts:
-        print('book_hash 冲突行:', [tuple(row) for row in conflicts])
-        raise ValueError('重复非 NULL book_hash，迁移中止')
-    con.execute('CREATE UNIQUE INDEX IF NOT EXISTS uq_books_hash ON books(book_hash)')
+        print("book_hash 冲突行:", [tuple(row) for row in conflicts])
+        raise ValueError("重复非 NULL book_hash，迁移中止")
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_books_hash ON books(book_hash)")
     con.execute("""CREATE TABLE IF NOT EXISTS upload_jobs (
         id INTEGER PRIMARY KEY, book_hash TEXT NOT NULL, filename TEXT NOT NULL,
         pages INTEGER NOT NULL, status TEXT NOT NULL, stage TEXT NOT NULL,
@@ -200,6 +203,16 @@ def migrate(con) -> None:  # pragma: no cover
     判断列是否已存在（SQLite 无 IF NOT EXISTS 的加列语法）。
     """
     cols = {r[1] for r in con.execute("PRAGMA table_info(cards)").fetchall()}
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS card_videos (id INTEGER PRIMARY KEY AUTOINCREMENT, core_card_id INTEGER NOT NULL UNIQUE REFERENCES cards(id) ON DELETE CASCADE, concept_id INTEGER NOT NULL, status TEXT NOT NULL CHECK(status IN ('queued','generating','ready','failed')), source TEXT NOT NULL CHECK(source IN ('manual','batch','prewarm')), title TEXT, file_name TEXT, duration_s REAL, size_bytes INTEGER, script_json TEXT, error TEXT, requested_by INTEGER, requested_at TEXT NOT NULL, ready_at TEXT)"
+    )
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS card_video_links (video_id INTEGER NOT NULL REFERENCES card_videos(id) ON DELETE CASCADE, card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE, is_core INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(video_id,card_id))"
+    )
+    con.execute("CREATE INDEX IF NOT EXISTS idx_cvl_card ON card_video_links(card_id)")
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS card_video_daily_runs (date TEXT NOT NULL, user_id INTEGER NOT NULL, total INTEGER NOT NULL, queued INTEGER NOT NULL, skipped INTEGER NOT NULL, ran_at TEXT NOT NULL, PRIMARY KEY(date,user_id))"
+    )
     if "learn_count" not in cols:
         con.execute("ALTER TABLE cards ADD COLUMN learn_count INTEGER NOT NULL DEFAULT 0")
     if "next_review_at" not in cols:
@@ -214,16 +227,21 @@ def migrate(con) -> None:  # pragma: no cover
     con.execute(
         "UPDATE quiz_items SET card_content_hash ="
         " (SELECT c.content_hash FROM cards c WHERE c.id = quiz_items.card_id)"
-        " WHERE card_content_hash IS NULL")
-    con.execute("CREATE TABLE IF NOT EXISTS streak_freezes (day TEXT PRIMARY KEY, streak_kept INTEGER NOT NULL, created_at TEXT NOT NULL)")
+        " WHERE card_content_hash IS NULL"
+    )
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS streak_freezes (day TEXT PRIMARY KEY, streak_kept INTEGER NOT NULL, created_at TEXT NOT NULL)"
+    )
     # Snapshot history is deliberately evidence-only: never infer old availability.
-    con.execute("CREATE TABLE IF NOT EXISTS streak_days (day TEXT PRIMARY KEY, target INTEGER NOT NULL, review_done INTEGER NOT NULL, quiz_done INTEGER NOT NULL, met INTEGER NOT NULL, updated_at TEXT NOT NULL)")
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS streak_days (day TEXT PRIMARY KEY, target INTEGER NOT NULL, review_done INTEGER NOT NULL, quiz_done INTEGER NOT NULL, met INTEGER NOT NULL, updated_at TEXT NOT NULL)"
+    )
     # 用户偏好（SCOPE-001~003）：图书复习范围等键值对；老库补建（幂等）。
     con.execute("CREATE TABLE IF NOT EXISTS prefs (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     # SCOPE-003（修订 v0.11.0）：空范围不再是合法状态——幂等删除历史遗留的 `book_scope="[]"` 脏行。
     con.execute("DELETE FROM prefs WHERE key='book_scope' AND value='[]'")
     tz = timezone(timedelta(hours=BaseConfig.STREAK_TZ_OFFSET_HOURS))
-    today = datetime.fromtimestamp(__import__('time').time(), tz).date()
+    today = datetime.fromtimestamp(__import__("time").time(), tz).date()
     switch = datetime.fromisoformat(BaseConfig.STREAK_GOAL_FROM_DATE).date()
     reviews = {}
     for row in con.execute("SELECT learned_at FROM card_reviews WHERE learned_at IS NOT NULL"):
@@ -241,18 +259,38 @@ def migrate(con) -> None:  # pragma: no cover
             met = 1
         else:
             met = int(_migration_counts(con, day, tz, BaseConfig))
-        con.execute("INSERT OR IGNORE INTO streak_days(day,target,review_done,quiz_done,met,updated_at) VALUES(?,?,?,?,?,?)",
-                    (day.isoformat(), BaseConfig.REVIEW_TASK_TARGET, reviews[day], _migration_quizzes(con, day, tz), met, datetime.fromtimestamp(__import__('time').time(), tz).isoformat(timespec="seconds")))
+        con.execute(
+            "INSERT OR IGNORE INTO streak_days(day,target,review_done,quiz_done,met,updated_at) VALUES(?,?,?,?,?,?)",
+            (
+                day.isoformat(),
+                BaseConfig.REVIEW_TASK_TARGET,
+                reviews[day],
+                _migration_quizzes(con, day, tz),
+                met,
+                datetime.fromtimestamp(__import__("time").time(), tz).isoformat(timespec="seconds"),
+            ),
+        )
 
 
 def _migration_quizzes(con, day, tz):  # pragma: no cover
     start = datetime.combine(day, datetime.min.time(), tzinfo=tz).astimezone(UTC).isoformat()
-    end = (datetime.combine(day, datetime.min.time(), tzinfo=tz) + timedelta(days=1)).astimezone(UTC).isoformat()
-    return con.execute("SELECT COUNT(DISTINCT item_id) FROM quiz_attempts WHERE created_at>=? AND created_at<?", (start, end)).fetchone()[0]
+    end = (
+        (datetime.combine(day, datetime.min.time(), tzinfo=tz) + timedelta(days=1))
+        .astimezone(UTC)
+        .isoformat()
+    )
+    return con.execute(
+        "SELECT COUNT(DISTINCT item_id) FROM quiz_attempts WHERE created_at>=? AND created_at<?", (start, end)
+    ).fetchone()[0]
 
 
 def _migration_counts(con, day, tz, config):  # pragma: no cover
     start = datetime.combine(day, datetime.min.time(), tzinfo=tz)
     end = start + timedelta(days=1)
-    reviews = con.execute("SELECT COUNT(DISTINCT card_id) FROM card_reviews WHERE learned_at>=? AND learned_at<?", (start.isoformat(), end.isoformat())).fetchone()[0]
-    return reviews >= config.REVIEW_TASK_TARGET and _migration_quizzes(con, day, tz) >= config.QUIZ_TASK_TARGET
+    reviews = con.execute(
+        "SELECT COUNT(DISTINCT card_id) FROM card_reviews WHERE learned_at>=? AND learned_at<?",
+        (start.isoformat(), end.isoformat()),
+    ).fetchone()[0]
+    return (
+        reviews >= config.REVIEW_TASK_TARGET and _migration_quizzes(con, day, tz) >= config.QUIZ_TASK_TARGET
+    )

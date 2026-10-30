@@ -57,6 +57,7 @@
         </div>
       </div>
       <div class="kc-hint rise">拖动卡片：右滑 = 记得 · 左滑 = 忘了</div>
+      <button class="btn video-review" type="button">讲解</button>
       <div class="actions rise" style="--d:80">
         <button class="btn" id="k-again">忘了</button>
         <button class="btn solid" id="k-good">记得</button>
@@ -70,6 +71,47 @@
     });
     document.getElementById('k-good').onclick = () => Flashcard.decide(true);
     document.getElementById('k-again').onclick = () => Flashcard.decide(false);
+    const videoButton=app.querySelector('.video-review');
+    videoButton.addEventListener('touchstart',(event)=>event.stopPropagation(),{passive:true});
+    videoButton.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      const state = (await api.get(`/api/videos/state?card_id=${c.card_id}`)).data;
+      if (!state.available) {
+        videoButton.disabled = true;
+        videoButton.setAttribute('aria-disabled', 'true');
+        videoButton.textContent = state.reason || '未检测到 VideoKit（设置 VIDEOKIT_HOME）';
+        return;
+      }
+      if (state.status === 'failed') {
+        videoButton.textContent = '生成失败：' + (state.error || '未知错误');
+        return;
+      }
+      if (state.url) {
+        const sheet = document.createElement('div');
+        sheet.className = 'video-sheet';
+        sheet.innerHTML = `<button type="button" class="btn">关闭</button><video controls playsinline preload="metadata" src="${esc(state.url)}"></video>`;
+        document.body.appendChild(sheet);
+        sheet.querySelector('button').onclick = () => {
+          const player = sheet.querySelector('video');
+          player.pause(); player.removeAttribute('src'); player.load(); sheet.remove();
+        };
+        return;
+      }
+      if (state.status === 'generating' && state.requested_at) {
+        const started = Date.parse(state.requested_at);
+        const tick = () => {
+          const elapsed = parseInt((Date.now() - started) / 1000, 10);
+          const seconds = elapsed < 0 ? 0 : elapsed;
+          videoButton.textContent = `已加入生成队列，完成后可在此播放 · 已等待 ${seconds} 秒`;
+        };
+        tick();
+        const timer = window.setInterval(tick, 1000);
+        videoButton.dataset.waitTimer = timer;
+        return;
+      }
+      await api.post('/api/videos/request', { card_id: c.card_id });
+      videoButton.textContent = '已加入生成队列，完成后可在此播放';
+    });
   }
 
   async function decide(c, remembered) {
