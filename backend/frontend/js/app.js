@@ -652,6 +652,9 @@
     const d=(await api.get('/api/family')).data, me=d.members.find(x=>x.id===d.me.id);
     let mine={};
     try { mine=(await api.get('/api/family/member/'+me.id)).data; } catch(e) { mine={}; }
+    // 「我的进度」与个人空间同源（/api/account），避免同一数字两页不一致
+    let acct={};
+    try { acct=(await api.get('/api/account')).data; } catch(e) { acct={}; }
     const three=mine.today||{};
     const bar=(label,obj)=>obj?`<p class="taskline"><b>${label}</b> ${obj.done}/${obj.target}</p>`:'';
     const members=d.members.filter(x=>x.id!==d.me.id);
@@ -659,7 +662,7 @@
       <div class="rowlist"><a class="row" href="#/account"><span class="l"><b>个人空间</b><span>我的进度 · 账号与密码</span></span></a></div>
       <section class="block"><h2 class="h2">我的进度</h2>
         ${bar('看视频',three.video)}${bar('复习卡片',three.review)}${bar('刷题',three.quiz)}
-        <p class="sub">覆盖率 ${me.coverage}% · 连续 ${me.streak} 天 · 今日卡片 ${me.today_cards}</p>
+        <p class="sub">覆盖率 ${acct.coverage ?? me.coverage}% · 连续 ${acct.streak ?? me.streak} 天 · 今日卡片 ${me.today_cards}</p>
         <label><input id="familyShare" type="checkbox" ${d.me.shared?'checked':''}> 允许成员查看我的学习进度</label></section>
       <div class="rowlist">${members.map(x=>`<a class="row" href="#/member/${x.id}"><span class="l"><b>${esc(x.username)}</b><span>${x.shared?`今日卡片 ${x.today_cards} · 覆盖率 ${x.coverage}% · 连续 ${x.streak} 天`:'对方未共享进度'}</span></span></a>`).join('')||'<p class="sub">小组还没有其他成员</p>'}</div>`);
     document.getElementById('familyShare').onchange=async e=>{await api.post('/api/family/share',{shared:e.target.checked}); await familyPage();};
