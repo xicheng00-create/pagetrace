@@ -1,8 +1,8 @@
-# DESIGN_SPEC — pagetrace v0.17.0
+# DESIGN_SPEC — pagetrace v0.18.3
 
 | 项 | 值 |
 |---|---|
-| 版本 | 0.17.0（**与 `backend/app.py` 的 `version` 一致** · 版本号诚实规则见 `CLAUDE.md §5`） |
+| 版本 | 0.18.3（**与 `backend/app.py` 的 `version` 一致** · 版本号诚实规则见 `CLAUDE.md §5`） |
 | 日期 | 2026-10-11 |
 | 作者 | pm（Hermes） |
 | 状态图例 | ✅ 已实现并验证 · ⚠️ 部分/未验证（须写原因）· ❌ 未实现 · 🔒 已冻结（不可单方改） |
@@ -964,6 +964,44 @@ S1-DISPLAY-SCOPE：运行时计算属性名不保证拦截；违规处置：阻�
 ### [0.16.4]
 冻结余额为 0 时的提示文案独占页头下方一行（仅 0 时显示）；页头标题、连胜组与退出登录一律不收缩、不折行。
 
+### [0.18.3] 2026-10-30
+
+**REQ-FAM-04 共享维度 / 个人维度（对后续一律适用）**
+
+- 触发点：任何按书/章/概念/卡/题读取或写入的 SQL。
+- 共享维度（同 household 可见）：`books` 可见性、`chapters`、`concepts`、`cards` 内容、`quiz_items` 题面、`card_videos` 映射。
+  → 一律内联规范谓词 `b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))`。
+- 个人维度（禁止跨成员）：`card_reviews`、`quiz_attempts`、连胜、个人进度、个人额度、上传任务。
+  → 继续 `user_id=?`，且必须是 `g.user_id`，不是 `owner_id`。
+- 写操作：只允许 `books.owner_id == g.user_id`（本人创建的书才可改）。
+- 违规处置：`scripts/s2_sql_scope_scan.py` 静态门禁转红（裸 `owner_id=?` 或缺规范谓词即失败）；
+  `tests/test_household_scope_no_bypass.py` 对白名单外文件计数，出现即失败；跨户反证测试 `tests/test_s2_invites.py`。
+
+### [0.18.2] 2026-10-30
+
+- REQ-VIDEO-UI-05 详情页播放器 `.video-player`：竖屏视频在手机上宽度自适应、高度 ≤56dvh、`object-fit:contain`、水平居中；桌面 ≥721px 时宽 100%（≤900px）。
+
+### [0.18.1] 2026-10-30
+
+- REQ-VIDEO-UI-01 视频接口一律返回 `{code:0,data:...}`；`tests/test_video_queue.py::test_all_json_endpoints_use_code_envelope` 机械断言。
+- REQ-VIDEO-UI-02 首页「视频讲解」必须是 `<a class="row" href="#/videos">`，不得用 `span`/`aria-disabled` 代替入口。
+- REQ-VIDEO-UI-03 闪卡「讲解」点击后 1 秒内必须出现 `.video-sheet`；`scripts/ui_audit.js` 实测点击断言。
+- REQ-VIDEO-UI-04 视频列表行必须包在 `.rowlist`（行间 12px 间隙）；深色面板内按钮前景 `#FBF8F0`。
+
+### [0.18.0] 2026-10-30
+家庭空间骨架：household 归属迁移、共享书架与学习进度共享接口/页面。完成状态以 FAMILY-delivery 审计证据为准。
+
 ### [0.17.0] 2026-10-30
 视频讲解初版：数据表、能力接口、幂等队列、媒体 Range 路由、VideoKit worker（FIFO、失败记录、时长校验、每日 owner 预热与启动恢复）、首页/卡片/闪卡入口及分层列表播放器。验证状态以交付审计报告为准。
+
+
+## 14. 家庭空间（REQ-FAM）
+
+- REQ-FAM-01 households 迁移需幂等；启动迁移并检查每用户 household_id 均指向 household。
+- REQ-FAM-02 同家庭书籍可见性必须由 `services/household.py` 唯一入口生成；跨家庭书籍不得出现在书目、复习范围、统计。
+- REQ-FAM-03 禁止散落 owner_id 可见性判断；grep 发现即阻断提交，仅服务入口及迁移允许。
+- REQ-FAM-04 `/api/family` 每人数字只按对应 user_id 统计；shared=false 只允许 id/username/shared。
+- REQ-FAM-05 分享开关仅修改本人，关闭后本人仍可读自身数据；接口测试验证即时生效。
+- REQ-FAM-06 空书架显示「书架空着 · 等书入库」，禁止假数据与 0/0 环图。
+- REQ-FAM-07 首页家庭入口无条件常显。覆盖路径：迁移、书籍/复习/统计查询、家庭 API、家庭路由和首页。违规处置：停止发布，回滚对应提交，补齐机械断言后重验。
 

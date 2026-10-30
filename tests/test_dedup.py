@@ -1,6 +1,7 @@
 """CARD-006 入库闸门：只处理完整重复，保留相似但不同的卡。"""
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 from ai import cardgate  # noqa: E402
 

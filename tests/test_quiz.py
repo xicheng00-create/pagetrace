@@ -15,9 +15,9 @@ BACKEND = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app import create_app  # noqa: E402
+from services import quiz, quizgen  # noqa: E402
 
 from scripts import ingest_kb  # noqa: E402
-from services import quiz, quizgen  # noqa: E402
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "cards-contract-1.jsonl"
 
@@ -506,8 +506,8 @@ def test_reveal_missing_card_returns_404(client):
 
 
 def test_round10_display_exits(client):
-    from services import labels
     from data.db import get_db
+    from services import labels
     session = _start(client)
     it = session['items'][0]
     with client.application.app_context():

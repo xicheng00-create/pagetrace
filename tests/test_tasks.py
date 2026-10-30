@@ -4,16 +4,17 @@
 done = 复习完成数 ≥ N 且 测验完成数 ≥ M。
 """
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from config import BaseConfig  # noqa: E402
-from scripts import ingest_kb  # noqa: E402
 from services import queue, tasks  # noqa: E402
 from services.clock import TZ8, iso  # noqa: E402
+
+from scripts import ingest_kb  # noqa: E402
 
 NOW = datetime(2026, 9, 27, 10, 0, tzinfo=TZ8)
 
@@ -46,7 +47,7 @@ def _review(con, card_ids, when=NOW):
 
 def _quiz(con, n, when=NOW):
     """插入 n 道题 + n 条今日作答（distinct item_id）。"""
-    utc = when.astimezone(timezone.utc).isoformat(timespec="seconds")
+    utc = when.astimezone(UTC).isoformat(timespec="seconds")
     card = con.execute("SELECT id FROM cards LIMIT 1").fetchone()[0]
     for i in range(n):
         iid = con.execute(

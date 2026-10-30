@@ -13,6 +13,7 @@ sys.path.insert(0, str(BACKEND))
 POOL_FUNCTIONS = """due_query new_query today_queue books_with_pool_counts cards_for_concept
 concept_status_counts concepts_with_card_counts scheduled_plan_cards card_status
 level_card_statuses subject_pool_counts subject_last_review learned_quiz_cards card_answer
+household_coverage_counts
 wrong_answer_cards chapter_answer_pool card_content_hash current_cached_quiz_item
 quiz_card_context weak_chapter_card_rows update_card_schedule card_schedule
 available_due_count available_new_count chapter_pool_counts""".split()
@@ -48,6 +49,9 @@ ALLOW.update(
         ("services/video_cards.py", "concept_card_ids"): {"FROM"},
         ("services/nav.py", "parent_of"): {"FROM"},  # 只读实体父级，不读卡池/调度；test_nav query_only 反证
         ("services/cards.py", "_FROM"): {"FROM"},
+        # 片段只存 SQL 字符串常量，不含 execute；集中一处便于评审。
+        ("services/card_pool_fragments.py", "_FROM"): {"FROM"},
+        ("services/card_pool_fragments.py", "_COLS"): {"FROM"},
         ("data/models.py", "migrate"): {"FROM"},  # 历史题目指纹回填
         ("services/upload.py", "confirm_drafts"): {"INTO"},  # 用户显式确认的事务
         ("scripts/ingest_kb.py", "ingest_file"): {"FROM", "INTO", "UPDATE"},  # 契约导入

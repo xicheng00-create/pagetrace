@@ -12,6 +12,11 @@ from services.mastery import level_mastery
 from services.nav import response_nav
 from services.progress import _level_cards
 
+VISIBLE_BOOK_SQL = (
+    "b.owner_id IN (SELECT u2.id FROM users u2 "
+    "WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))"
+)
+
 bp = Blueprint("chapters", __name__)
 
 
@@ -21,7 +26,8 @@ def list_chapters():
     if not bid:
         return e_input("缺少 book_id")
     con = get_db()
-    book = con.execute("SELECT id FROM books WHERE id=? AND owner_id=?", (bid, g.user_id)).fetchone()
+    visibility, visibility_params = VISIBLE_BOOK_SQL, [g.user_id]
+    book = con.execute(f"SELECT id FROM books b WHERE id=? AND {visibility}", (bid, *visibility_params)).fetchone()
     if book is None:
         from middleware.errors import e_not_found
         return e_not_found()

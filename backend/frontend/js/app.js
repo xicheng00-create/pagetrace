@@ -227,15 +227,16 @@
     </a>`;
 
     const invitesEntry = `<a class="row" href="#/invites"><span class="l"><b>邀請碼</b><span>邀請他人建立獨立帳號</span></span></a>`;
+    const familyEntry = `<a class="row" href="#/family"><span class="l"><b>家庭</b><span>与家人共享书架，各自记录进度</span></span></a>`;
     if (!subs.length) {
       html(emptyHTML({
         label: '空 · Empty',
-        title: '还没有任何卡片',
+        title: '书架空着 · 等书入库',
         desc: '上传文字型 PDF 生成草稿，确认后即可开始复习。',
         howto: '怎么产生内容：在知识库侧跑 <code>export_cards.py</code> 导出契约文件，'
           + '再跑本 app 的 <code>backend/scripts/ingest_kb.py</code> 入库；首章入库即解锁，卡就会出现在这里。',
         href: null,
-      }) + `<div class="rowlist">${uploadEntry}${invitesEntry}</div>`);
+      }) + `<div class="rowlist">${familyEntry}${uploadEntry}${invitesEntry}</div>`);
       return;
     }
 
@@ -283,9 +284,12 @@
         <a class="row" href="#/scope">
           <span class="l"><b>图书</b><span>${esc(scopeLabel)}</span></span>
         </a>
+        ${familyEntry}
         ${uploadEntry}
         ${invitesEntry}
-        <span class="row is-disabled" aria-disabled="true"><span class="l"><b>视频讲解</b><span id="videoCapability">正在检查视频能力</span></span></span>
+        <a class="row" href="#/videos">
+          <span class="l"><b>视频讲解</b><span id="videoCapability">正在检查视频能力</span></span>
+        </a>
         <a class="row" href="#/quiz">
           <span class="l"><b>出题自测</b><span>选择题 / 是非题 · 自动判分</span></span>
         </a>
@@ -605,18 +609,27 @@
         tree += '</section>';
       }
     }
-    html(`<h1 class="display">视频讲解</h1>${level !== 'books' ? '<a class="btn" href="#/videos">返回书目</a>' : ''}${tree || '<p class="sub">还没有讲解视频</p><p class="sub">在卡片详情中请求生成视频。</p>'}`);
+    /* 行必须包在 .rowlist 里才有 12px 间隙（旧写法裸拼 <a class=row>，书目按钮粘在一起）。 */
+    const body = tree ? `<div class="rowlist">${tree}</div>` : '<p class="sub">还没有讲解视频</p><p class="sub">在卡片详情中请求生成视频。</p>';
+    html(`<h1 class="display">视频讲解</h1>${level !== 'books' ? '<a class="btn back-link" href="#/videos">返回书目</a>' : ''}${body}`);
   }
   async function videoDetail(id) {
     const response = await api.get(`/api/videos/${id}`);
     const video = response.data;
     const player = video.status === 'ready'
-      ? `<video controls playsinline preload="metadata" src="${esc('/media/videos/' + video.file_name)}"></video>`
+      ? `<video class="video-player" controls playsinline preload="metadata" src="${esc('/media/videos/' + video.file_name)}"></video>`
       : '<p>已加入生成队列，完成后可在此播放</p>';
     html(`<h1 class="display">${esc(video.title || '讲解视频')}</h1>${player}<div class="video-cards">${(video.cards || []).map((card) => `<article class="block"><b>${esc(card.title || card.front)}</b>${card.is_core ? '<span>触发卡</span>' : ''}</article>`).join('')}</div>`);
   }
+  async function familyPage() {
+    const d=(await api.get('/api/family')).data, me=d.members.find(x=>x.id===d.me.id);
+    html(`<h1 class="display">家庭</h1><p class="sub">${esc(d.household.name)} · 同一书架，各自学习</p><section class="block"><h2 class="h2">我的进度</h2><p>今日 ${me.today_cards} · 覆盖率 ${me.coverage}% · 连续 ${me.streak} 天</p><label><input id="familyShare" type="checkbox" ${d.me.shared?'checked':''}> 允许家人查看我的学习进度</label></section><div class="rowlist">${d.members.filter(x=>x.id!==d.me.id).map(x=>`<article class="block"><h2>${esc(x.username)}</h2>${x.shared?`<p>今日 ${x.today_cards} · 覆盖率 ${x.coverage}% · 连续 ${x.streak} 天</p><p>最近活跃：${esc(x.last_active||'—')}</p>`:'<p>对方未共享</p>'}</article>`).join('')||'<p class="sub">家庭成员尚未加入</p>'}</div>`);
+    document.getElementById('familyShare').onchange=async e=>{await api.post('/api/family/share',{shared:e.target.checked}); await familyPage();};
+  }
+
   function route() {
-    refreshStreak();  // 每次导航刷新页头连胜（不阻断渲染）
+    refreshStreak();
+    refreshVideoCapability();  // 每次导航刷新页头连胜（不阻断渲染）
     const h = location.hash || '#/';
     if (h !== routeBefore) {
       const stack = readStack();
@@ -632,6 +645,7 @@
     const id = m ? m[2] : null;
     try {
       if (name === '') return home();
+      if (name === 'family') return familyPage();
       if (name === 'videos' && id) return videoDetail(id);
       if (name === 'videos') {
         const params = new URLSearchParams(h.split('?')[1] || '');
@@ -661,7 +675,17 @@
     }
   }
 
-  api.get('/api/videos/capability').then(r=>{const e=document.getElementById('videoCapability'); if(e)e.textContent=r.data.available?'可选依赖已就绪':r.data.reason;}).catch(()=>{});
+  /* 首页那行由 home() 异步渲染，启动时抓一次会抓空（元素还没生成）→ 文案永远停在「正在检查」。
+     改成每次导航后带重试地填，渲染完必被填上。 */
+  function refreshVideoCapability(tries = 20) {
+    const e = document.getElementById('videoCapability');
+    if (!e) { if (tries > 0) setTimeout(() => refreshVideoCapability(tries - 1), 150); return; }
+    api.get('/api/videos/capability').then((r) => {
+      const el = document.getElementById('videoCapability');
+      const d = (r && r.data) || {};
+      if (el) el.textContent = d.available ? '已就绪 · 点开按书 → 章 → 概念看' : (d.reason || '暂不可用');
+    }).catch(() => {});
+  }
   window.addEventListener('hashchange', () => { try { route(); } catch (_) {} });
   window.App = { route, home, refreshStreak };
   // 共享给 review.js / quiz.js / wrong.js（同一设计语法，避免各写一份状态块）

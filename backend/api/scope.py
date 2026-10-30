@@ -32,7 +32,7 @@ def set_scope():
             return e_input("至少选择一本书")
         marks = ",".join("?" * len(ids))
         if con.execute(
-            f"SELECT COUNT(*) FROM books WHERE owner_id=? AND id IN ({marks})", [uid, *ids]
+            f"SELECT COUNT(*) FROM books WHERE owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?)) AND id IN ({marks})", [uid, *ids]
         ).fetchone()[0] != len(set(ids)):
             return e_not_found("存在不存在的书 id")
         scope.set_book_scope(con, ids)

@@ -4,14 +4,13 @@ import logging
 import sys
 from pathlib import Path
 
-import pytest
-
 BACKEND = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND))
 
+from services import quizgen
+
 from scripts import ingest_store
 from scripts import refresh_stale_quiz_items as refresh
-from services import quizgen
 
 
 def _seed_con(tmp_path, monkeypatch):

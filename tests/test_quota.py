@@ -1,7 +1,7 @@
 from pathlib import Path
-from test_upload import client, pdf_bytes, submit  # noqa: F401
 
 from data.db import get_db
+from test_upload import client, pdf_bytes, submit  # noqa: F401
 
 
 def test_quota_blocks_over_limit(client):

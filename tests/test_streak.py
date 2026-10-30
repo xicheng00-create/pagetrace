@@ -1,4 +1,5 @@
 import pytest
+
 pytestmark = pytest.mark.skip(reason="STREAK-003 snapshot semantics covered by test_streak_snapshot.py")
 """段⑤C 连胜：本地日切分 + 今天没复习不算断连；无任何催学接口。"""
 import sys

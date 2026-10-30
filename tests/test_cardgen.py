@@ -3,12 +3,11 @@ import json
 from pathlib import Path
 
 import pytest
-from test_upload import client, pdf_bytes, submit  # noqa: F401
-
 from data.db import get_db
 from services import cardgen, llm
-from services.upload import extract_text, save_drafts
 from services.segment import segment_book
+from services.upload import extract_text, save_drafts
+from test_upload import client, pdf_bytes, submit  # noqa: F401
 
 
 def row():

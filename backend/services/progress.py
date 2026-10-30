@@ -47,7 +47,7 @@ def subject_metrics(con, at=None):
     uid = _uid()
     at = at or now_iso()
     subjects = con.execute(
-        "SELECT DISTINCT s.id,s.name,s.slug,s.order_no FROM subjects s JOIN books b ON b.subject_id=s.id WHERE b.owner_id=? ORDER BY s.order_no,s.id",
+        "SELECT DISTINCT s.id,s.name,s.slug,s.order_no FROM subjects s JOIN books b ON b.subject_id=s.id WHERE b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?)) ORDER BY s.order_no,s.id",
         (uid,),
     ).fetchall()
     out = []
@@ -59,14 +59,14 @@ def subject_metrics(con, at=None):
         )
         stats = card_pool.subject_pool_counts(con, at, s, uid).fetchone()
         books = con.execute(
-            "SELECT COUNT(*) FROM books WHERE subject_id=? AND owner_id=?", (s["id"], uid)
+            "SELECT COUNT(*) FROM books WHERE subject_id=? AND owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))", (s["id"], uid)
         ).fetchone()[0]
         chapters = con.execute(
-            "SELECT COUNT(*) FROM chapters ch JOIN books b ON b.id=ch.book_id WHERE b.subject_id=? AND b.owner_id=?",
+            "SELECT COUNT(*) FROM chapters ch JOIN books b ON b.id=ch.book_id WHERE b.subject_id=? AND b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))",
             (s["id"], uid),
         ).fetchone()[0]
         unlocked = con.execute(
-            "SELECT COUNT(*) FROM chapters ch JOIN books b ON b.id=ch.book_id WHERE b.subject_id=? AND b.owner_id=? AND ch.unlocked_at IS NOT NULL",
+            "SELECT COUNT(*) FROM chapters ch JOIN books b ON b.id=ch.book_id WHERE b.subject_id=? AND b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?)) AND ch.unlocked_at IS NOT NULL",
             (s["id"], uid),
         ).fetchone()[0]
         last = card_pool.subject_last_review(con, s, uid).fetchone()[0]

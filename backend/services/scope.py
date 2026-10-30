@@ -10,6 +10,11 @@ from services.clock import now_iso
 from services.mastery import level_mastery
 from services.progress import _level_cards
 
+VISIBLE_BOOK_SQL = (
+    "b.owner_id IN (SELECT u2.id FROM users u2 "
+    "WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))"
+)
+
 KEY = "book_scope"
 
 
@@ -61,9 +66,9 @@ def book_filter(book_ids, column):
 def scope_state(con):
     uid = _uid()
     at = now_iso()
+    clause, params = VISIBLE_BOOK_SQL, [uid]
     books = con.execute(
-        "SELECT b.id,b.title,s.name AS subject,s.id AS subject_id FROM books b JOIN subjects s ON s.id=b.subject_id WHERE b.owner_id=? ORDER BY s.id,b.id",
-        (uid,),
+        "SELECT b.id,b.title,s.name AS subject,s.id AS subject_id FROM books b JOIN subjects s ON s.id=b.subject_id WHERE " + clause + " ORDER BY s.id,b.id", params
     ).fetchall()
     out = []
     for b in books:

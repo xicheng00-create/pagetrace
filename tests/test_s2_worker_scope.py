@@ -9,7 +9,7 @@ def test_worker_selects_each_owner_and_preserves_global_fifo(monkeypatch):
     with app.app_context():
         con = get_db()
         for uid in (1, 2):
-            con.execute("INSERT INTO users VALUES(?,?,?,'member','t')", (uid, str(uid), 'unused'))
+            con.execute("INSERT INTO users (id, username, password_hash, role, created_at) VALUES(?,?,?,'member','t')", (uid, str(uid), 'unused'))
         for job_id, owner in ((1, 2), (2, 1), (3, 2)):
             con.execute(
                 "INSERT INTO upload_jobs(id,book_hash,filename,pages,status,stage,created_at,updated_at,owner_id) "

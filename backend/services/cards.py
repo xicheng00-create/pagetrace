@@ -6,7 +6,13 @@ from datetime import datetime, timedelta
 
 from config import BaseConfig
 
-from services.card_quiz_pool import (  # noqa: F401
+from services.card_quiz_pool import (  # noqa: F401  # noqa: F401
+    _COLS,
+    _DUE_ORDER,
+    _DUE_TAIL,
+    _FROM,
+    _NEW_TAIL,
+    _PRIORITY,
     available_due_count,
     available_new_count,
     card_answer,
@@ -22,48 +28,23 @@ from services.card_quiz_pool import (  # noqa: F401
     wrong_answer_cards,
 )
 from services.clock import TZ8, now
-
-_COLS = (
-    "c.id AS card_id, c.front, c.back, c.status, c.learn_count, c.next_review_at, c.source,"
-    " c.title,"
-    " cp.id AS concept_id, cp.name AS concept,"
-    " ch.id AS chapter_id, ch.name AS chapter, ch.order_no AS chapter_order,"
-    " b.title AS book, s.name AS subject, s.id AS subject_id"
-)
-_FROM = (
-    " FROM cards c"
-    " JOIN concepts cp ON cp.id = c.concept_id"
-    " JOIN chapters ch ON ch.id = cp.chapter_id"
-    " JOIN books b ON b.id = ch.book_id"
-    " JOIN subjects s ON s.id = c.subject_id"
-    " WHERE ch.unlocked_at IS NOT NULL"
-)
-_DUE_TAIL = (
-    " AND c.status <> 'new' AND c.next_review_at IS NOT NULL AND c.next_review_at <= ?"
-    " ORDER BY c.next_review_at ASC, c.id ASC LIMIT ?"
-)
-_NEW_TAIL = " AND c.status = 'new' ORDER BY ch.order_no ASC, cp.id ASC, c.id ASC LIMIT ?"
-
-_PRIORITY = (
-    "CASE WHEN (SELECT r.result FROM card_reviews r WHERE r.card_id=c.id"
-    " AND r.user_id=? AND substr(r.learned_at,1,10)=? ORDER BY r.learned_at DESC, r.id DESC LIMIT 1)='again'"
-    " THEN 0 ELSE 1 END"
-)
-_DUE_ORDER = " ORDER BY c.next_review_at ASC, c.id ASC LIMIT ?"
+from services.household import book_visibility_sql
 
 
 def due_query(
     subject_id: int | None = None,
     book_ids: list[int] | None = None,
     user_id: int | None = None,
+    con=None,
 ) -> tuple[str, list]:
     """Build due queue query constrained by the book owner."""
     from services.scope import book_filter
 
     parts, params = [], []
     if user_id is not None:
-        parts.append("b.owner_id = ?")
-        params.append(user_id)
+        clause, values = book_visibility_sql(con, user_id)
+        parts.append(clause)
+        params.extend(values)
     if subject_id:
         parts.append("s.id = ?")
         params.append(subject_id)
@@ -79,14 +60,16 @@ def new_query(
     subject_id: int | None = None,
     book_ids: list[int] | None = None,
     user_id: int | None = None,
+    con=None,
 ) -> tuple[str, list]:
     """Build new-card query constrained by the book owner."""
     from services.scope import book_filter
 
     parts, params = [], []
     if user_id is not None:
-        parts.append("b.owner_id = ?")
-        params.append(user_id)
+        clause, values = book_visibility_sql(con, user_id)
+        parts.append(clause)
+        params.extend(values)
     if subject_id:
         parts.append("s.id = ?")
         params.append(subject_id)
@@ -146,7 +129,7 @@ def today_queue(
         "WHERE cr.user_id=? AND cr.learned_at>=? AND cr.learned_at<? AND cr.result IN ('hard','good') "
         "AND c.next_review_at>?)"
     )
-    due_sql, due_head = due_query(subject_id, book_ids, user_id)
+    due_sql, due_head = due_query(subject_id, book_ids, user_id, con)
     due_sql = due_sql.replace(" AND c.status <> 'new'", exclusion + " AND c.status <> 'new'")
     due_sql = due_sql.replace(_DUE_ORDER, f" ORDER BY {_PRIORITY}, c.next_review_at ASC, c.id ASC LIMIT ?")
     due = [
@@ -161,7 +144,7 @@ def today_queue(
     limit = min(remaining, new_max)
     new: list[dict] = []
     if limit > 0:
-        new_sql, new_head = new_query(subject_id, book_ids, user_id)
+        new_sql, new_head = new_query(subject_id, book_ids, user_id, con)
         new_sql = new_sql.replace(" AND c.status = 'new'", exclusion + " AND c.status = 'new'")
         new = [
             dict(r)
@@ -176,8 +159,19 @@ def today_queue(
     }
 
 
+def household_coverage_counts(con, user_id):
+    clause, params = book_visibility_sql(con, user_id)
+    return con.execute(
+        "SELECT COUNT(*) total,SUM(c.status<>'new') learned FROM cards c "
+        "JOIN concepts cp ON cp.id=c.concept_id JOIN chapters ch ON ch.id=cp.chapter_id "
+        "JOIN books b ON b.id=ch.book_id WHERE " + clause,
+        params,
+    )
+
+
 def books_with_pool_counts(con, sid, user_id):
     """api/books.list_books: preserve original pool SQL and bindings."""
+    clause, scope_params = book_visibility_sql(con, user_id)
     return con.execute(
         "SELECT b.id, b.title, b.slug, b.status,"
         " (SELECT COUNT(*) FROM chapters ch WHERE ch.book_id=b.id) AS chapters_total,"
@@ -194,19 +188,20 @@ def books_with_pool_counts(con, sid, user_id):
         " (SELECT COUNT(*) FROM cards c WHERE c.status='mastered' AND c.concept_id IN"
         "         (SELECT id FROM concepts WHERE chapter_id IN"
         "             (SELECT id FROM chapters WHERE book_id=b.id))) AS mastered "
-        "FROM books b WHERE b.subject_id=? AND b.owner_id=? ORDER BY b.id",
-        (sid, user_id),
+        "FROM books b WHERE b.subject_id=? AND " + clause + " ORDER BY b.id",
+        (sid, *scope_params),
     )
 
 
 def cards_for_concept(con, cid, user_id):
-    """Return cards only when the containing book belongs to this user."""
+    """Return cards visible in the current household."""
+    clause, params = book_visibility_sql(con, user_id)
     return con.execute(
         "SELECT c.id,c.title,c.front,c.back,c.source,c.status,c.learn_count,c.next_review_at "
         "FROM cards c JOIN concepts cp ON cp.id=c.concept_id "
         "JOIN chapters ch ON ch.id=cp.chapter_id JOIN books b ON b.id=ch.book_id "
-        "WHERE c.concept_id=? AND b.owner_id=? ORDER BY c.id",
-        (cid, user_id),
+        "WHERE c.concept_id=? AND " + clause + " ORDER BY c.id",
+        (cid, *params),
     )
 
 
@@ -215,7 +210,7 @@ def concept_status_counts(con, chid, user_id=None):
     sql = (
         "SELECT c.concept_id, c.status, COUNT(*) AS n FROM cards c "
         "JOIN concepts cp ON cp.id=c.concept_id JOIN chapters ch ON ch.id=cp.chapter_id "
-        "JOIN books b ON b.id=ch.book_id WHERE ch.id=? AND b.owner_id=? "
+        "JOIN books b ON b.id=ch.book_id WHERE ch.id=? AND b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?)) "
         "GROUP BY c.concept_id, c.status"
     )
     return con.execute(sql, (chid, user_id))
@@ -227,7 +222,7 @@ def concepts_with_card_counts(con, chid, user_id=None):
         "SELECT cp.id, cp.name, cp.source_pages, cp.confidence, cp.tags, "
         "(SELECT COUNT(*) FROM cards c WHERE c.concept_id=cp.id) AS cards_total "
         "FROM concepts cp JOIN chapters ch ON ch.id=cp.chapter_id JOIN books b ON b.id=ch.book_id "
-        "WHERE cp.chapter_id=? AND b.owner_id=? ORDER BY cp.id",
+        "WHERE cp.chapter_id=? AND b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?)) ORDER BY cp.id",
         (chid, user_id),
     )
 
@@ -241,7 +236,7 @@ def scheduled_plan_cards(con, at_iso, user_id):
         " JOIN concepts cp ON cp.id = c.concept_id"
         " JOIN chapters ch ON ch.id = cp.chapter_id"
         " JOIN books b ON b.id = ch.book_id"
-        " WHERE c.status <> 'new' AND b.owner_id=?"
+        " WHERE c.status <> 'new' AND b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))"
         " ORDER BY CASE WHEN c.next_review_at IS NULL THEN 2"
         "               WHEN c.next_review_at <= ? THEN 0 ELSE 1 END ASC,"
         "          c.next_review_at ASC, c.id ASC",
@@ -254,7 +249,7 @@ def card_status(con, card_id, user_id=None):
     return con.execute(
         "SELECT c.status FROM cards c JOIN concepts cp ON cp.id=c.concept_id "
         "JOIN chapters ch ON ch.id=cp.chapter_id JOIN books b ON b.id=ch.book_id "
-        "WHERE c.id=? AND b.owner_id=?", (card_id, user_id)
+        "WHERE c.id=? AND b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))", (card_id, user_id)
     )
 
 
@@ -263,7 +258,7 @@ def level_card_statuses(con, user_id, *, book_id=None, chapter_id=None, subject_
     return con.execute(
         "SELECT c.id, c.status FROM cards c JOIN concepts cp ON cp.id=c.concept_id "
         "JOIN chapters ch ON ch.id=cp.chapter_id JOIN books b ON b.id=ch.book_id "
-        "WHERE b.owner_id=? AND (? IS NULL OR ch.book_id=?) "
+        "WHERE b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?)) AND (? IS NULL OR ch.book_id=?) "
         "AND (? IS NULL OR cp.chapter_id=?) AND (? IS NULL OR c.subject_id=?)",
         (user_id, book_id, book_id, chapter_id, chapter_id, subject_id, subject_id),
     )
@@ -275,7 +270,7 @@ def subject_pool_counts(con, at, subject, user_id):
         "SELECT COUNT(*) total,SUM(c.status='new') unlearned,"
         "SUM(c.status<>'new' AND c.next_review_at IS NOT NULL AND c.next_review_at<=?) due "
         "FROM cards c JOIN concepts cp ON cp.id=c.concept_id JOIN chapters ch ON ch.id=cp.chapter_id "
-        "JOIN books b ON b.id=ch.book_id WHERE c.subject_id=? AND b.owner_id=?",
+        "JOIN books b ON b.id=ch.book_id WHERE c.subject_id=? AND b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))",
         (at, subject['id'], user_id),
     )
 
@@ -283,7 +278,7 @@ def subject_pool_counts(con, at, subject, user_id):
 def subject_last_review(con, subject, user_id):
     """services/progress.subject_metrics: preserve original pool SQL and bindings."""
     return con.execute(
-        "SELECT MAX(cr.learned_at) FROM card_reviews cr JOIN cards c ON c.id=cr.card_id JOIN concepts cp ON cp.id=c.concept_id JOIN chapters ch ON ch.id=cp.chapter_id JOIN books b ON b.id=ch.book_id WHERE c.subject_id=? AND b.owner_id=? AND cr.user_id=?",
+        "SELECT MAX(cr.learned_at) FROM card_reviews cr JOIN cards c ON c.id=cr.card_id JOIN concepts cp ON cp.id=c.concept_id JOIN chapters ch ON ch.id=cp.chapter_id JOIN books b ON b.id=ch.book_id WHERE c.subject_id=? AND b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?)) AND cr.user_id=?",
         (subject["id"], user_id, user_id),
     )
 

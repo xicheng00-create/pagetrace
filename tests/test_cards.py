@@ -13,8 +13,9 @@ BACKEND = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app import create_app  # noqa: E402
-from scripts import ingest_kb  # noqa: E402
 from services import labels  # noqa: E402
+
+from scripts import ingest_kb  # noqa: E402
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "cards-contract-1.jsonl"
 

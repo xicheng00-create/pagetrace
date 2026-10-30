@@ -44,13 +44,13 @@ def test_schema_enforces_unique_core_card(video_client):
 def test_capability_reason(video_client, monkeypatch):
     monkeypatch.setattr(videos, "missing", lambda: ["videokit"])
     response = video_client.get("/api/videos/capability")
-    assert response.json == {"available": False, "reason": "未检测到 VideoKit（设置 VIDEOKIT_HOME）"}
+    assert response.json == {"code": 0, "data": {"available": False, "reason": "未检测到 VideoKit（设置 VIDEOKIT_HOME）"}}
 
 
 def test_capability_reports_missing_render_deps(video_client, monkeypatch):
     monkeypatch.setattr(videos, "missing", lambda: ["manim", "edge-tts"])
     response = video_client.get("/api/videos/capability")
-    assert response.json == {"available": False, "reason": "缺少渲染依赖：manim 或 edge-tts"}
+    assert response.json == {"code": 0, "data": {"available": False, "reason": "缺少渲染依赖：manim 或 edge-tts"}}
 
 
 def test_capability_falls_back_to_absolute_paths(monkeypatch):
@@ -90,19 +90,19 @@ def test_batch_success_state_list_detail_and_ready_url(video_client, monkeypatch
     _seed(video_client)
     monkeypatch.setattr(videos, "available", lambda: True)
     result = video_client.post("/api/videos/batch", json={"card_ids": [1]})
-    assert result.status_code == 200 and result.json["items"][0]["status"] == "queued"
-    state = video_client.get("/api/videos/state?card_id=1").json
+    assert result.status_code == 200 and result.json["data"]["items"][0]["status"] == "queued"
+    state = video_client.get("/api/videos/state?card_id=1").json["data"]
     assert state["status"] == "queued" and state["requested_at"]
-    assert video_client.get("/api/videos").json["items"][0]["status"] == "queued"
+    assert video_client.get("/api/videos").json["data"]["items"][0]["status"] == "queued"
     with video_client.application.app_context():
         from data.db import get_db
 
         con = get_db()
         con.execute("UPDATE card_videos SET status='ready',file_name='1.mp4',duration_s=90 WHERE id=1")
         con.commit()
-    state = video_client.get("/api/videos/state?card_id=1").json
+    state = video_client.get("/api/videos/state?card_id=1").json["data"]
     assert state["url"] == "/media/videos/1.mp4"
-    assert video_client.get("/api/videos/1").json["cards"][0]["is_core"] == 1
+    assert video_client.get("/api/videos/1").json["data"]["cards"][0]["is_core"] == 1
     assert video_client.get("/api/videos/999").status_code == 404
     assert video_client.get("/api/videos/state?card_id=999").status_code == 404
 
@@ -115,4 +115,14 @@ def test_missing_dependency_returns_unavailable(video_client, monkeypatch):
     _seed(video_client)
     monkeypatch.setattr(videos, "available", lambda: False)
     response = video_client.post("/api/videos/request", json={"card_id": 1})
-    assert response.status_code == 503 and response.json["available"] is False
+    assert response.status_code == 503 and response.json["code"] == 503
+
+
+def test_all_json_endpoints_use_code_envelope(video_client, monkeypatch):
+    """前端 api.js 只认 {code,data}；视频接口返裸对象会让 #/videos 与「讲解」静默失败。"""
+    _seed(video_client)
+    monkeypatch.setattr(videos, "available", lambda: True)
+    for path in ("/api/videos/capability", "/api/videos", "/api/videos/state?card_id=1"):
+        body = video_client.get(path).json
+        assert body["code"] == 0 and "data" in body, path
+    assert video_client.post("/api/videos/request", json={"card_id": 1}).json["code"] == 0

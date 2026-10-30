@@ -6,7 +6,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 import sqlite3
 
-from config import BaseConfig
 from data import models
 from services import streak, tasks
 from services.clock import TZ8
@@ -17,7 +16,7 @@ def _con(tmp_path, cards=28):
     con.row_factory = sqlite3.Row
     from data.s2_schema import fresh_schema
     con.executescript(fresh_schema())
-    con.execute("INSERT INTO users VALUES(1,'owner','test','owner','t')")
+    con.execute("INSERT INTO users (id, username, password_hash, role, created_at) VALUES(1,'owner','test','owner','t')")
     con.execute("INSERT INTO subjects(name,slug,order_no,created_at) VALUES('x','x',0,'t')")
     con.execute("INSERT INTO books(owner_id,subject_id,title,slug,status,created_at) VALUES(1,1,'b','b','active','t')")
     con.execute("INSERT INTO chapters(book_id,name,order_no,anchor,status,unlocked_at) VALUES(1,'c',1,'c','unlocked','t')")

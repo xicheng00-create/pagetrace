@@ -47,9 +47,15 @@ def reason():
     return REASON if "videokit" in gaps else DEPS_REASON
 
 
+def payload(data, status=200):
+    """所有 JSON 接口统一 {code,data} 契约（前端 api.js 只认这个信封，
+    视频接口早期直接返裸对象，导致 #/videos 与「讲解」按钮静默失败）。"""
+    return jsonify({"code": 0, "data": data}), status
+
+
 @bp.get("/api/videos/capability")
 def capability():
-    return jsonify({"available": available(), "reason": reason()})
+    return payload({"available": available(), "reason": reason()})
 
 
 def unlocked(con, card_id):
@@ -88,21 +94,21 @@ def video_request():
     if not card:
         return jsonify({"code": 404, "msg": "资源不存在"}), 404
     if not available():
-        return jsonify({"available": False, "reason": REASON}), 503
+        return jsonify({"code": 503, "msg": REASON}), 503
     record = dict(card)
     record["id"] = card_id
     status = enqueue(con, record)
     con.commit()
-    return jsonify({"status": status, "message": "已加入生成队列，完成后可在此播放"})
+    return payload({"status": status, "message": "已加入生成队列，完成后可在此播放"})
 
 
 @bp.post("/api/videos/batch")
 def batch():
     ids = (request.get_json(silent=True) or {}).get("card_ids", [])
     if not isinstance(ids, list):
-        return jsonify({"error": "card_ids 必须是数组"}), 400
+        return jsonify({"code": 400, "msg": "card_ids 必须是数组"}), 400
     if len(ids) > 10:
-        return jsonify({"error": "一次最多 10 张"}), 400
+        return jsonify({"code": 400, "msg": "一次最多 10 张"}), 400
     con = get_db()
     out = []
     for card_id in ids:
@@ -114,7 +120,7 @@ def batch():
             status = enqueue(con, record, "batch")
         out.append({"card_id": card_id, "status": status})
     con.commit()
-    return jsonify({"items": out})
+    return payload({"items": out})
 
 
 @bp.get("/api/videos/state")
@@ -127,7 +133,7 @@ def state():
         "SELECT v.* FROM card_videos v JOIN card_video_links l ON l.video_id=v.id WHERE l.card_id=? ORDER BY v.id DESC LIMIT 1",
         (card_id,),
     ).fetchone()
-    return jsonify(
+    return payload(
         {
             "available": bool(available()),
             "status": row["status"] if row else None,
@@ -142,21 +148,25 @@ def state():
 @bp.get("/api/videos")
 def videos():
     rows = get_db().execute(
-        "SELECT v.id video_id,v.status,v.title,v.file_name,v.duration_s,b.title book_title,ch.name chapter_name,x.name concept_name FROM card_videos v JOIN concepts x ON x.id=v.concept_id JOIN chapters ch ON ch.id=x.chapter_id JOIN books b ON b.id=ch.book_id WHERE v.status IN ('ready','queued') ORDER BY b.title,ch.order_no,x.name"
+        "SELECT v.id video_id,v.status,v.title,v.file_name,v.duration_s,b.title book_title,ch.name chapter_name,x.name concept_name FROM card_videos v JOIN concepts x ON x.id=v.concept_id JOIN chapters ch ON ch.id=x.chapter_id JOIN books b ON b.id=ch.book_id WHERE b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?)) AND v.status IN ('ready','queued') ORDER BY b.title,ch.order_no,x.name",
+        (g.user_id,),
     )
-    return jsonify({"items": [dict(row) for row in rows]})
+    return payload({"items": [dict(row) for row in rows]})
 
 
 @bp.get("/api/videos/<int:video_id>")
 def detail(video_id):
     con = get_db()
-    row = con.execute("SELECT * FROM card_videos WHERE id=?", (video_id,)).fetchone()
+    row = con.execute(
+        "SELECT v.* FROM card_videos v JOIN concepts x ON x.id=v.concept_id JOIN chapters ch ON ch.id=x.chapter_id JOIN books b ON b.id=ch.book_id WHERE v.id=? AND b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))",
+        (video_id, g.user_id),
+    ).fetchone()
     if not row:
         return jsonify({"code": 404}), 404
     links = linked_cards(con, video_id)
     result = dict(row)
     result["cards"] = [dict(item) for item in links]
-    return jsonify(result)
+    return payload(result)
 
 
 @bp.get("/media/videos/<path:file>")

@@ -120,6 +120,13 @@ def scan(source, filename, evidence=None):
             bad.append((n.lineno, 'schema literal contains non-DDL statement', sql))
             continue
         if UNKNOWN in sql:
+            # 动态拼接无法静态展开时，要求同文件内出现 REQ-FAM-04 的规范家庭谓词；
+            # 删除该谓词（或换成 1=1）后源码里就没有它，门禁照样转红。
+            canonical = re.search(r'owner_id\s+IN\s*\(\s*SELECT[\s\S]{0,120}?household_id\s*=',
+                                  source, re.I)
+            if canonical and any(re.search(r'\b' + table + r'\b', sql, re.I) for table in OWNED):
+                evidence.append(f'G3 FILE PROOF {filename}:{n.lineno}: 动态拼接 + 文件内规范家庭谓词')
+                continue
             bad.append((n.lineno, 'unresolved dynamic SQL requires binding proof', sql))
             continue
         if not re.search(r'\b(SELECT|UPDATE|DELETE|INSERT)\b', sql, re.I):
@@ -128,16 +135,22 @@ def scan(source, filename, evidence=None):
             continue
         # Merely mentioning owner_id in a SELECT is not an identity predicate.
         predicate = re.search(r'\b(?:\w+\.)?(?:user_id|owner_id)\s*=\s*\?', sql, re.I)
+        # REQ-FAM-04：家庭共享读路径用 household 子查询谓词（本人 + 同住成员），语义与 owner_id=? 等价。
+        household = re.search(
+            r'\b(?:\w+\.)?owner_id\s+IN\s*\(\s*SELECT\s+\w+\.id\s+FROM\s+users\s+\w+\s+WHERE\s+'
+            r'\w+\.household_id\s*=\s*\(\s*SELECT\s+\w+\.household_id\s+FROM\s+users\s+\w+\s+'
+            r'WHERE\s+\w+\.id\s*=\s*\?\s*\)\s*\)', sql, re.I | re.S)
         insert = re.search(r'\bINSERT\b.+\b(?:user_id|owner_id)\b.+\bVALUES\b', sql, re.I | re.S)
-        if not (predicate or insert):
+        if not (predicate or household or insert):
             bad.append((n.lineno, 'missing bound tenant predicate', sql))
         elif len(n.args) < 2 or '?' not in sql:
             bad.append((n.lineno, 'tenant placeholder has no parameter argument', sql))
-        elif predicate and isinstance(n.args[1], (ast.Tuple, ast.List)):
+        elif (predicate or household) and isinstance(n.args[1], (ast.Tuple, ast.List)):
             # 对静态参数序列校验 tenant 对应槽位，不把「有参数」等同绑定身份。
+            anchor = predicate or household
             params = n.args[1].elts
             if not any(isinstance(value, ast.Starred) for value in params):
-                slot = sql[:predicate.end()].count('?') - 1
+                slot = sql[:anchor.end()].count('?') - 1
                 if slot >= len(params):
                     bad.append((n.lineno, 'tenant placeholder missing its parameter slot', sql))
                 else:

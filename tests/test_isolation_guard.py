@@ -130,6 +130,7 @@ def test_gate_targets_mark_themselves_isolated_and_never_allow_production(isolat
 
 def test_attach_production_refused_without_writes(monkeypatch, tmp_path, isolated_production):
     import sqlite3
+
     from data.db import get_db
     production = isolated_production
     monkeypatch.setenv('DATABASE_PATH', str(tmp_path / 'safe.sqlite3'))

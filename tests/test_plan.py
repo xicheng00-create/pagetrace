@@ -8,13 +8,10 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import pytest
-
 BACKEND = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app import create_app  # noqa: E402
-
 from scripts.ingest_store import connect  # noqa: E402
 from services import plan  # noqa: E402
 from services.clock import TZ8, iso  # noqa: E402

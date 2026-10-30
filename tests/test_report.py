@@ -6,16 +6,13 @@
 - 最弱一章与 WEAK-001 同一聚合口径。
 """
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-
-import pytest
 
 BACKEND = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app import create_app  # noqa: E402
-
 from scripts.ingest_store import connect  # noqa: E402
 from services import report  # noqa: E402
 from services.clock import TZ8, iso  # noqa: E402
@@ -61,7 +58,7 @@ def test_window_boundary_excludes_one_minute_early(tmp_path):
     _review(con, when=iso(before))
     _review(con, when=iso(WEEK_START))
     # 作答：UTC 起点前 1 分钟 → 不计入；起点整 → 计入
-    start_utc = WEEK_START.astimezone(timezone.utc)
+    start_utc = WEEK_START.astimezone(UTC)
     _attempt(con, when_utc=(start_utc - timedelta(minutes=1)).isoformat(timespec="seconds"),
              is_correct=0, tag="early")
     _attempt(con, when_utc=start_utc.isoformat(timespec="seconds"), is_correct=1, tag="on")
@@ -77,7 +74,7 @@ def test_accuracy_ratio_and_none_when_zero(tmp_path):
     con = _seed(tmp_path / "acc.sqlite3")
     d0 = report.weekly_report(con, at=AT)
     assert d0["quiz_answered"] == 0 and d0["accuracy"] is None   # 0 作答 → None（前端显 —）
-    on = WEEK_START.astimezone(timezone.utc).isoformat(timespec="seconds")
+    on = WEEK_START.astimezone(UTC).isoformat(timespec="seconds")
     _attempt(con, when_utc=on, is_correct=1, tag="a")
     _attempt(con, when_utc=on, is_correct=0, tag="b")
     _attempt(con, when_utc=on, is_correct=0, tag="c")
@@ -98,8 +95,8 @@ def test_reviewed_cards_dedup(tmp_path):
 
 def test_weakest_chapter_uses_week_window(tmp_path):
     con = _seed(tmp_path / "weak.sqlite3")
-    on = WEEK_START.astimezone(timezone.utc).isoformat(timespec="seconds")
-    early = (WEEK_START - timedelta(days=1)).astimezone(timezone.utc).isoformat(timespec="seconds")
+    on = WEEK_START.astimezone(UTC).isoformat(timespec="seconds")
+    early = (WEEK_START - timedelta(days=1)).astimezone(UTC).isoformat(timespec="seconds")
     _attempt(con, when_utc=on, is_correct=0, tag="w1")
     _attempt(con, when_utc=on, is_correct=0, tag="w2")
     _attempt(con, when_utc=early, is_correct=0, tag="old")     # 上周 → 不计入最弱章

@@ -83,6 +83,7 @@ def fake_response(monkeypatch, bodies, usage=None):
 def test_prompt_prefix_stable(monkeypatch):
     import hashlib
     import json
+
     from services.prompts import PREFIXES
     bodies = []
     fake_response(monkeypatch, bodies)

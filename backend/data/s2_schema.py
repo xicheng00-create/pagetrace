@@ -6,7 +6,15 @@ CREATE TABLE IF NOT EXISTS users (
     username      TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role          TEXT NOT NULL DEFAULT 'owner',
-    created_at    TEXT NOT NULL
+    created_at    TEXT NOT NULL,
+    household_id INTEGER NOT NULL DEFAULT 1,
+    share_progress INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS households (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS invites (

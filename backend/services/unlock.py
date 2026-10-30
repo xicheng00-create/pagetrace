@@ -63,7 +63,7 @@ def is_ready(con, chapter_id, *, ratio=None, min_learned=None, at=None, user_id=
 
 def unlock_chapter(con, chapter_id, user_id=None):
     uid = _uid(user_id)
-    row = con.execute("SELECT ch.unlocked_at FROM chapters ch JOIN books b ON b.id=ch.book_id WHERE ch.id=? AND b.owner_id=?", (chapter_id, uid)).fetchone()
+    row = con.execute("SELECT ch.unlocked_at FROM chapters ch JOIN books b ON b.id=ch.book_id WHERE ch.id=? AND b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))", (chapter_id, uid)).fetchone()
     if row is None or row["unlocked_at"]:
         return False
     con.execute("UPDATE chapters SET unlocked_at=?,status='unlocked' WHERE id=?", (now_iso(), chapter_id))
@@ -73,7 +73,7 @@ def unlock_chapter(con, chapter_id, user_id=None):
 def maybe_unlock(con, *, ratio=None, min_learned=None, at=None):
     uid = _uid()
     unlocked = []
-    for book in con.execute("SELECT id FROM books WHERE owner_id=? ORDER BY id", (uid,)).fetchall():
+    for book in con.execute("SELECT id FROM books WHERE owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?)) ORDER BY id", (uid,)).fetchall():
         chapters = con.execute("SELECT id,unlocked_at FROM chapters WHERE book_id=? ORDER BY order_no,id", (book["id"],)).fetchall()
         if not chapters:
             continue

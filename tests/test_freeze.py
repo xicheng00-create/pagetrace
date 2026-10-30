@@ -1,12 +1,15 @@
-import sys, sqlite3
+import sqlite3
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'backend'))
 from data.s2_schema import fresh_schema
-from services.streak import freeze_status, settle_freezes, compute
+from services.streak import compute, freeze_status, settle_freezes
+
 
 def _db():
- c=sqlite3.connect(':memory:'); c.row_factory=sqlite3.Row; c.executescript(fresh_schema()); c.execute("INSERT INTO users VALUES(1,'owner','test','owner','t')"); c.execute('CREATE TABLE IF NOT EXISTS streak_freezes(day TEXT PRIMARY KEY,streak_kept INTEGER NOT NULL,created_at TEXT NOT NULL)'); return c
+ c=sqlite3.connect(':memory:'); c.row_factory=sqlite3.Row; c.executescript(fresh_schema()); c.execute("INSERT INTO users (id, username, password_hash, role, created_at) VALUES(1,'owner','test','owner','t')"); c.execute('CREATE TABLE IF NOT EXISTS streak_freezes(day TEXT PRIMARY KEY,streak_kept INTEGER NOT NULL,created_at TEXT NOT NULL)'); return c
 
 def _day(c,d,met): c.execute('INSERT OR REPLACE INTO streak_days VALUES(1,?,?,?,?,?,?)',(d,30,30,5,met,d+'T23:00:00+08:00'))
 def _at(d): return datetime.fromisoformat(d+'T12:00:00+08:00')

@@ -3,7 +3,7 @@
 铁律：表结构变更写这里（幂等 SQL），不手工改库；生产库 data-local/review.sqlite3。
 """
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from config import BaseConfig
 
@@ -14,6 +14,12 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     role          TEXT NOT NULL DEFAULT 'owner',
     created_at    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS households (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS invites (
@@ -167,6 +173,7 @@ CREATE TABLE IF NOT EXISTS streak_days (
 """
 
 
+
 def _ensure_column(con, table, column, definition):
     if column not in {r[1] for r in con.execute(f"PRAGMA table_info({table})")}:
         con.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
@@ -202,6 +209,11 @@ def migrate(con) -> None:  # pragma: no cover
     新增迁移请追加为幂等的 `ALTER TABLE ... ADD COLUMN`，并先查 PRAGMA table_info
     判断列是否已存在（SQLite 无 IF NOT EXISTS 的加列语法）。
     """
+    con.execute("CREATE TABLE IF NOT EXISTS households (id INTEGER PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL)")
+    _ensure_column(con, "users", "household_id", "INTEGER NOT NULL DEFAULT 1")
+    _ensure_column(con, "users", "share_progress", "INTEGER NOT NULL DEFAULT 1")
+    con.execute("INSERT OR IGNORE INTO households(id,name,created_at) VALUES(1,'家',?)", ("2000-01-01T00:00:00+00:00",))
+    con.execute("UPDATE users SET household_id=1 WHERE household_id IS NULL")
     cols = {r[1] for r in con.execute("PRAGMA table_info(cards)").fetchall()}
     con.execute(
         "CREATE TABLE IF NOT EXISTS card_videos (id INTEGER PRIMARY KEY AUTOINCREMENT, core_card_id INTEGER NOT NULL UNIQUE REFERENCES cards(id) ON DELETE CASCADE, concept_id INTEGER NOT NULL, status TEXT NOT NULL CHECK(status IN ('queued','generating','ready','failed')), source TEXT NOT NULL CHECK(source IN ('manual','batch','prewarm')), title TEXT, file_name TEXT, duration_s REAL, size_bytes INTEGER, script_json TEXT, error TEXT, requested_by INTEGER, requested_at TEXT NOT NULL, ready_at TEXT)"
@@ -272,25 +284,7 @@ def migrate(con) -> None:  # pragma: no cover
         )
 
 
-def _migration_quizzes(con, day, tz):  # pragma: no cover
-    start = datetime.combine(day, datetime.min.time(), tzinfo=tz).astimezone(UTC).isoformat()
-    end = (
-        (datetime.combine(day, datetime.min.time(), tzinfo=tz) + timedelta(days=1))
-        .astimezone(UTC)
-        .isoformat()
-    )
-    return con.execute(
-        "SELECT COUNT(DISTINCT item_id) FROM quiz_attempts WHERE created_at>=? AND created_at<?", (start, end)
-    ).fetchone()[0]
-
-
-def _migration_counts(con, day, tz, config):  # pragma: no cover
-    start = datetime.combine(day, datetime.min.time(), tzinfo=tz)
-    end = start + timedelta(days=1)
-    reviews = con.execute(
-        "SELECT COUNT(DISTINCT card_id) FROM card_reviews WHERE learned_at>=? AND learned_at<?",
-        (start.isoformat(), end.isoformat()),
-    ).fetchone()[0]
-    return (
-        reviews >= config.REVIEW_TASK_TARGET and _migration_quizzes(con, day, tz) >= config.QUIZ_TASK_TARGET
-    )
+from data.migration_helpers import (  # noqa: E402,F401  （计数辅助已拆出）
+    _migration_counts,
+    _migration_quizzes,
+)

@@ -8,6 +8,11 @@ from services import labels
 from services.nav import response_nav
 from services.progress import card_metrics
 
+VISIBLE_BOOK_SQL = (
+    "b.owner_id IN (SELECT u2.id FROM users u2 "
+    "WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))"
+)
+
 bp = Blueprint("cards", __name__)
 
 
@@ -17,9 +22,10 @@ def list_cards():
     if not cid:
         return e_input("缺少 concept_id")
     con = get_db()
+    visibility, visibility_params = VISIBLE_BOOK_SQL, [g.user_id]
     cp = con.execute(
-        "SELECT cp.name FROM concepts cp JOIN chapters ch ON ch.id=cp.chapter_id JOIN books b ON b.id=ch.book_id WHERE cp.id=? AND b.owner_id=?",
-        (cid, g.user_id),
+        f"SELECT cp.name FROM concepts cp JOIN chapters ch ON ch.id=cp.chapter_id JOIN books b ON b.id=ch.book_id WHERE cp.id=? AND {visibility}",
+        (cid, *visibility_params),
     ).fetchone()
     if cp is None:
         return e_not_found()

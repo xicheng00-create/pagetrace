@@ -7,8 +7,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
 from app import create_app
 from data.db import get_db
-from scripts import ingest_kb
 from services.nav import parent_of, response_nav
+
+from scripts import ingest_kb
 
 
 @pytest.fixture()

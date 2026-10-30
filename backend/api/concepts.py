@@ -18,6 +18,11 @@ from services import cards as card_pool
 from services import unlock
 from services.nav import response_nav
 
+VISIBLE_BOOK_SQL = (
+    "b.owner_id IN (SELECT u2.id FROM users u2 "
+    "WHERE u2.household_id=(SELECT u1.household_id FROM users u1 WHERE u1.id=?))"
+)
+
 bp = Blueprint("concepts", __name__)
 logger = logging.getLogger(__name__)
 
@@ -60,7 +65,8 @@ def list_concepts():
     if not chid:
         return e_input("缺少 chapter_id")
     con = get_db()
-    ch = con.execute("SELECT ch.unlocked_at FROM chapters ch JOIN books b ON b.id=ch.book_id WHERE ch.id=? AND b.owner_id=?", (chid, g.user_id)).fetchone()
+    visibility, visibility_params = VISIBLE_BOOK_SQL, [g.user_id]
+    ch = con.execute(f"SELECT ch.unlocked_at FROM chapters ch JOIN books b ON b.id=ch.book_id WHERE ch.id=? AND {visibility}", (chid, *visibility_params)).fetchone()
     nav = response_nav(con, "chapter", chid, g.user_id) if ch else {"parent_href": None, "parent_label": None}
     if ch is None:
         return e_not_found()

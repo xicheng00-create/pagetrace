@@ -1,10 +1,9 @@
 from pathlib import Path
 
-from test_upload import client, pdf_bytes, submit  # noqa: F401
-
 from data.db import get_db
 from scripts.ingest_kb import ingest_file
 from services import clock
+from test_upload import client, pdf_bytes, submit  # noqa: F401
 
 
 def test_draft_invisible_to_all_read_apis(client):

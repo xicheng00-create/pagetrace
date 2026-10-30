@@ -1,3 +1,14 @@
+import re
+
+CANONICAL_PREDICATE = re.compile(
+    r'b\.owner_id IN \(SELECT u2\.id FROM users u2 '
+    r'WHERE u2\.household_id=\(SELECT u1\.household_id FROM users u1 WHERE u1\.id=\?\)\)'
+)
+
+
+def strip_tenant(query: str) -> str:
+    """去掉规范家庭谓词，用来证明门禁会转红。"""
+    return CANONICAL_PREDICATE.sub('1=1', query, count=1)
 """SQL scope gate negative cases; unresolved expressions must never silently pass."""
 import importlib.util
 from pathlib import Path
@@ -86,7 +97,7 @@ def test_card_pool_data_filters_are_resolved_and_tenant_removal_is_red(name):
                     if isinstance(n, ast.FunctionDef) and n.name == name)
     query = ast.get_source_segment(source, function)
     assert not gate.scan(query, 'backend/services/card_quiz_pool.py')
-    bad = query.replace('b.owner_id=?', '1=1').replace('qa.user_id = ?', '1=1').replace('cr.user_id=?', '1=1')
+    bad = strip_tenant(query).replace('qa.user_id = ?', '1=1').replace('cr.user_id=?', '1=1')
     assert gate.scan(bad, 'backend/services/card_quiz_pool.py')
 
 
@@ -100,8 +111,9 @@ def test_ddl_prefix_does_not_hide_data_queries(sql):
 
 
 def test_schema_static_proof_rejects_embedded_query_and_unknown_builder(tmp_path):
-    from s2_schema_sql_proof import ddl_only, schema_sql
     import shutil
+
+    from s2_schema_sql_proof import ddl_only, schema_sql
     root = path.parents[1]
     destination = tmp_path / 'backend/data'
     destination.mkdir(parents=True)
@@ -131,7 +143,7 @@ def test_level_filter_is_resolved_and_wrong_tenant_binding_fails():
               if isinstance(n, ast.FunctionDef) and n.name == 'level_card_statuses')
     query = ast.get_source_segment(source, fn)
     assert not gate.scan(query, 'backend/services/cards.py')
-    assert gate.scan(query.replace('b.owner_id=?', '1=1'), 'backend/services/cards.py')
+    assert gate.scan(strip_tenant(query), 'backend/services/cards.py')
     assert gate.scan(query.replace('(user_id, book_id,', '(book_id, book_id,'), 'backend/services/cards.py')
 
 

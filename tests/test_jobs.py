@@ -1,9 +1,7 @@
-from test_upload import client, pdf_bytes, submit  # noqa: F401
-
 import pytest
-
 from data.db import get_db
 from services.jobs import get_job, transition
+from test_upload import client, pdf_bytes, submit  # noqa: F401
 
 
 def test_illegal_transition_rejected(client):
@@ -35,6 +33,7 @@ def test_failure_retry_transition(client):
 def test_job_resume_after_restart(client, monkeypatch):
     import json
     from pathlib import Path
+
     from services import llm
     from services.worker import run_job
     fixture = Path(__file__).parent / 'fixtures/cards-contract-1.jsonl'
@@ -78,6 +77,7 @@ def test_single_concurrency(client, monkeypatch, caplog):
     import logging
     import threading
     from pathlib import Path
+
     from services import llm, worker
 
     first = submit(client, pdf_bytes(pages=1)).json['data']['id']
@@ -129,6 +129,7 @@ def test_queued_added_during_run_is_consumed(client, monkeypatch):
     import json
     import threading
     from pathlib import Path
+
     from services import llm, worker
 
     entered, release = threading.Event(), threading.Event()
@@ -167,6 +168,7 @@ def test_subprocess_restart_after_llm_before_cache(client, tmp_path):
     import sys
     import time
     from pathlib import Path
+
     from data.db import _db_path
 
     job_id = submit(client, pdf_bytes()).json['data']['id']
@@ -225,6 +227,7 @@ def test_enqueue_at_empty_exit_handshake(client, monkeypatch):
     import json
     import threading
     from pathlib import Path
+
     from services import llm, worker
     original = worker.drain
     empty, release = threading.Event(), threading.Event()
@@ -259,6 +262,7 @@ def test_worker_recovers_after_drain_exception(client, monkeypatch, caplog):
     import json
     import threading
     from pathlib import Path
+
     from services import llm, worker
     original = worker.drain
     exited = threading.Event()
@@ -292,6 +296,7 @@ def test_worker_recovers_after_drain_exception(client, monkeypatch, caplog):
 def test_thread_start_failure_then_upload(client, monkeypatch, failure):
     import json
     from pathlib import Path
+
     from services import llm, worker
     app = client.application
     app.config['UPLOAD_WORKER_ENABLED'] = True
@@ -320,6 +325,7 @@ def test_thread_start_failure_then_upload(client, monkeypatch, failure):
 
 def test_enqueue_during_exception_exit(client, monkeypatch):
     import threading
+
     from services import worker
     entered, release, consumed = threading.Event(), threading.Event(), threading.Event()
     calls = []
@@ -346,6 +352,7 @@ def test_enqueue_during_exception_exit(client, monkeypatch):
 @pytest.mark.parametrize('exception', [KeyboardInterrupt, BaseException])
 def test_round10_concurrent_interrupt_cleanup(client, monkeypatch, caplog, stage, exception):
     import threading
+
     from services import worker
     app = client.application
     job_id = submit(client, pdf_bytes()).json['data']['id']
@@ -391,10 +398,9 @@ def test_round14_block_isolation_retry_and_visibility(client, monkeypatch, caplo
     import os
     import shutil
     import sqlite3
-    import subprocess
-    import sys
     import tempfile
     from pathlib import Path
+
     from services import llm, worker
     from services.jobs import get_job
 
@@ -479,6 +485,7 @@ def test_round14_parse_failure_is_classified_parse(client, monkeypatch, caplog):
     """A real oversized source paragraph is reported as parsing, never provider."""
     import logging
     from pathlib import Path
+
     from services import worker
     from services.jobs import get_job
 
@@ -500,7 +507,6 @@ def test_round14_parse_failure_is_classified_parse(client, monkeypatch, caplog):
     assert '正文' not in response.get_data(as_text=True)
     assert '正文' not in caplog.text
 def test_round14_model_json_parse_is_not_gate(client, monkeypatch):
-    import json
     from services import cardgen, worker
     from services.jobs import get_job
 
@@ -554,6 +560,7 @@ def test_provider_failure_through_llm_layer(client, monkeypatch):
     """强断言：不注入异常类型，让真实 llm 层（HTTP 调用）失败 —— 必须分类为 provider。"""
     import sys
     from types import SimpleNamespace
+
     from data.db import get_db
     from services import worker
     job_id = submit(client, pdf_bytes()).json['data']['id']

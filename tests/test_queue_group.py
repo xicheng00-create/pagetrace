@@ -1,10 +1,13 @@
 import sys
 from datetime import datetime
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'backend'))
-from services.queue import today_queue
-from services.clock import TZ8
 import importlib.util
+
+from services.clock import TZ8
+from services.queue import today_queue
+
 spec=importlib.util.spec_from_file_location("test_today", Path(__file__).parent / "test_today.py")
 _seed=importlib.util.module_from_spec(spec); spec.loader.exec_module(_seed)
 _seed=_seed._seed
@@ -29,7 +32,7 @@ def test_ten_passed_removed_and_remaining_20(tmp_path):
     assert not set(range(1,11)) & {x['card_id'] for x in q['due']+q['new']}
 
 def test_again_does_not_count_and_returns_when_due(tmp_path):
-    con=_data(tmp_path,15); _review(con,range(1,11));
+    con=_data(tmp_path,15); _review(con,range(1,11))
     for i in range(1,4): _review(con,[i],result='again',nxt='2026-10-09T11:00:00+08:00')
     q=today_queue(con,at=AT,target=30)
     assert q['group']['done']==7

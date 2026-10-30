@@ -73,45 +73,130 @@
     document.getElementById('k-again').onclick = () => Flashcard.decide(false);
     const videoButton=app.querySelector('.video-review');
     videoButton.addEventListener('touchstart',(event)=>event.stopPropagation(),{passive:true});
-    videoButton.addEventListener('click', async (event) => {
+    videoButton.addEventListener('click', (event) => {
       event.stopPropagation();
-      const state = (await api.get(`/api/videos/state?card_id=${c.card_id}`)).data;
-      if (!state.available) {
-        videoButton.disabled = true;
-        videoButton.setAttribute('aria-disabled', 'true');
-        videoButton.textContent = state.reason || '未检测到 VideoKit（设置 VIDEOKIT_HOME）';
-        return;
-      }
-      if (state.status === 'failed') {
-        videoButton.textContent = '生成失败：' + (state.error || '未知错误');
-        return;
-      }
-      if (state.url) {
-        const sheet = document.createElement('div');
-        sheet.className = 'video-sheet';
-        sheet.innerHTML = `<button type="button" class="btn">关闭</button><video controls playsinline preload="metadata" src="${esc(state.url)}"></video>`;
-        document.body.appendChild(sheet);
-        sheet.querySelector('button').onclick = () => {
-          const player = sheet.querySelector('video');
-          player.pause(); player.removeAttribute('src'); player.load(); sheet.remove();
-        };
-        return;
-      }
-      if (state.status === 'generating' && state.requested_at) {
-        const started = Date.parse(state.requested_at);
-        const tick = () => {
-          const elapsed = parseInt((Date.now() - started) / 1000, 10);
-          const seconds = elapsed < 0 ? 0 : elapsed;
-          videoButton.textContent = `已加入生成队列，完成后可在此播放 · 已等待 ${seconds} 秒`;
-        };
-        tick();
-        const timer = window.setInterval(tick, 1000);
-        videoButton.dataset.waitTimer = timer;
-        return;
-      }
-      await api.post('/api/videos/request', { card_id: c.card_id });
-      videoButton.textContent = '已加入生成队列，完成后可在此播放';
+      openVideoSheet(c.card_id, videoButton);
     });
+  }
+
+  /* 点「讲解」必须立刻出东西：先开面板显示状态，再轮询到 ready 自动播放。
+     旧实现只改按钮文字，点了像没反应（2026-10-30 owner 实测报障）。 */
+  function openVideoSheet(cardId, button) {
+    const sheet = document.createElement('div');
+    sheet.className = 'video-sheet';
+    sheet.innerHTML = `<div class="video-sheet-body">
+        <p class="sub" data-video-status>正在检查视频…</p>
+        <div class="video-holder" data-video-holder></div>
+        <button type="button" class="btn">关闭</button>
+      </div>`;
+    document.body.appendChild(sheet);
+    const status = sheet.querySelector('[data-video-status]');
+    const holder = sheet.querySelector('[data-video-holder]');
+    let timer = null;
+    let closed = false;
+    let busy = false;
+
+    function close() {
+      closed = true;
+      if (timer) window.clearInterval(timer);
+      const player = sheet.querySelector('video');
+      if (player) { player.pause(); player.removeAttribute('src'); player.load(); }
+      sheet.remove();
+    }
+    sheet.querySelector('button').onclick = close;
+    sheet.addEventListener('click', (event) => { if (event.target === sheet) close(); });
+
+    async function poll() {
+      if (closed || busy) return;
+      busy = true;
+      try {
+        const state = (await api.get(`/api/videos/state?card_id=${cardId}`)).data;
+        if (closed) return;
+        if (!state.available) {
+          status.textContent = state.reason || '未检测到 VideoKit（设置 VIDEOKIT_HOME）';
+          if (button) button.textContent = '讲解（不可用）';
+          if (timer) { window.clearInterval(timer); timer = null; }
+          return;
+        }
+        if (state.url) {
+          status.textContent = '讲解视频';
+          holder.innerHTML = `<video controls playsinline preload="metadata" src="${esc(state.url)}"></video>`;
+          if (timer) { window.clearInterval(timer); timer = null; }
+          if (button) button.textContent = '讲解';
+          return;
+        }
+        if (state.status === 'failed') {
+          status.textContent = '生成失败：' + (state.error || '未知错误');
+          if (timer) { window.clearInterval(timer); timer = null; }
+          return;
+        }
+        if (state.status === 'queued' || state.status === 'generating') {
+          const started = state.requested_at ? Date.parse(state.requested_at) : 0;
+          const raw = started ? parseInt((Date.now() - started) / 1000, 10) : 0;
+          const seconds = raw > 0 ? raw : 0;
+          status.textContent = `正在生成讲解视频…已等待 ${seconds} 秒（完成后自动播放）`;
+          return;
+        }
+        status.textContent = '已加入生成队列，完成后可在此播放（约 1–3 分钟）';
+        try {
+          await api.post('/api/videos/request', { card_id: cardId });
+        } catch (e) {
+          if (!closed) status.textContent = '加入队列失败：' + (e.message || '未知错误');
+        }
+      } catch (e) {
+        if (!closed) status.textContent = '读取视频状态失败：' + (e.message || '未知错误');
+      } finally {
+        busy = false;
+      }
+    }
+
+    poll();
+    timer = window.setInterval(poll, 3000);
+  }
+
+
+  function openVideoSheet(cardId, button) {
+    const sheet = document.createElement('div');
+    sheet.className = 'video-sheet';
+    sheet.innerHTML = '<div class="video-sheet-body"><p class="sub" data-video-status>正在检查视频…</p><div data-video-holder></div><button type="button" class="btn">关闭</button></div>';
+    document.body.appendChild(sheet);
+    const status = sheet.querySelector('[data-video-status]');
+    const holder = sheet.querySelector('[data-video-holder]');
+    let timer = null;
+    let closed = false;
+    let busy = false;
+    const close = () => {
+      closed = true;
+      if (timer) window.clearInterval(timer);
+      const player = sheet.querySelector('video');
+      if (player) { player.pause(); player.removeAttribute('src'); player.load(); }
+      sheet.remove();
+    };
+    sheet.querySelector('button').onclick = close;
+    sheet.addEventListener('click', (event) => { if (event.target === sheet) close(); });
+    async function poll() {
+      if (closed || busy) return;
+      busy = true;
+      try {
+        let state = (await api.get(`/api/videos/state?card_id=${cardId}`)).data;
+        if (closed) return;
+        if (!state.available) { status.textContent = state.reason || '视频讲解暂不可用'; if (timer) window.clearInterval(timer); timer = null; return; }
+        if (!state.status) {
+          await api.post('/api/videos/request', { card_id: cardId });
+          state = (await api.get(`/api/videos/state?card_id=${cardId}`)).data;
+        }
+        if (state.url) {
+          status.textContent = '讲解视频已就绪';
+          holder.innerHTML = `<video controls playsinline preload="metadata" src="${esc(state.url)}"></video>`;
+          if (timer) window.clearInterval(timer); timer = null; return;
+        }
+        if (state.status === 'failed') { status.textContent = `生成失败：${state.error || '未知原因'}`; if (timer) window.clearInterval(timer); timer = null; return; }
+        status.textContent = state.reason || '已加入生成队列，完成后自动播放…';
+      } catch (error) { status.textContent = `读取讲解状态失败：${error.message || '请稍后重试'}`; }
+      finally { busy = false; }
+    }
+    poll();
+    timer = window.setInterval(poll, 3000);
   }
 
   async function decide(c, remembered) {

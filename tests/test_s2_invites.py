@@ -1,13 +1,13 @@
 """Invitation validation, rollback, expiry, concurrency and registered-user isolation."""
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 import pytest
-
 from app import create_app
 from auth import SENTINEL_PASSWORD_HASH, issue_token, password_hash
 from data.db import get_db
@@ -93,7 +93,8 @@ def test_concurrent_invite_claim_once(invite_app):
         assert get_db().execute("SELECT COUNT(*) FROM users WHERE role='member'").fetchone()[0] == 1
 
 
-def test_registered_user_cannot_read_owner_book(invite_app):
+def test_invited_member_shares_household_and_other_household_is_denied(invite_app):
+    """REQ-FAM-04：同户成员共享书/章；跨户一律 403/404 且响应体不得出现书标题。"""
     owner = setup_owner(invite_app)
     with invite_app.app_context():
         con = get_db()
@@ -103,12 +104,23 @@ def test_registered_user_cannot_read_owner_book(invite_app):
     code = owner.post('/api/invites').json['data']['code']
     member = invite_app.test_client()
     assert register(member, code).status_code == 200
-    response = member.get(f'/api/chapters?book_id={bid}')
-    assert response.status_code in (403,404)
-    assert 'OWNER-PRIVATE-MARKER' not in response.get_data(as_text=True)
+    # 同户：书架与章都能读到（家庭共享）
+    shelf = member.get('/api/books?subject_id=1')
+    assert shelf.status_code == 200 and [b['title'] for b in shelf.json['data']['books']] == ['OWNER-PRIVATE-MARKER']
+    shared = member.get(f'/api/chapters?book_id={bid}')
+    assert shared.status_code == 200
+    # 跨户：搬去另一个 household 后必须拒绝，且不泄露标题
+    with invite_app.app_context():
+        con = get_db()
+        con.execute("INSERT INTO households(id,name,created_at) VALUES(2,'别家','t')")
+        con.execute("UPDATE users SET household_id=2 WHERE username<>'owner'")
+        con.commit()
+    denied = member.get(f'/api/chapters?book_id={bid}')
+    assert denied.status_code in (403, 404)
+    assert 'OWNER-PRIVATE-MARKER' not in denied.get_data(as_text=True)
     own = member.get('/api/books?subject_id=1')
     assert own.status_code == 200 and own.json['data']['books'] == []
-    print('G2 REGISTER PASS: registered member → owner book denied/no owner marker; own books empty 200')
+    print('G2 REGISTER PASS: 同户共享可见 / 跨户 403-404 且无 owner marker')
 
 
 def test_owner_listing_scoped_to_creator(invite_app):

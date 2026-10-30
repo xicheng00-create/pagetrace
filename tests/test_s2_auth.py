@@ -6,7 +6,6 @@ import json
 import time
 
 import pytest
-
 from app import create_app
 from auth import decode_token, issue_token, password_hash, verify_password
 from data.db import get_db
@@ -133,7 +132,7 @@ def test_fresh_schema_constraints(auth_app):
 
 
 def test_anonymous_request_service_helpers_do_not_default_to_ray(auth_app):
-    from services import quota, upload, quizgen
+    from services import quizgen, quota, upload
     with auth_app.test_request_context('/api/upload'):
         assert upload._uid() is None
         assert quota._uid() is None
@@ -144,7 +143,19 @@ def test_anonymous_request_service_helpers_do_not_default_to_ray(auth_app):
 
 
 def test_private_service_helpers_reject_missing_identity(auth_app):
-    from services import jobs, progress, quiz, quota, report, review_sched, scope, streak, tasks, unlock, upload
+    from services import (
+        jobs,
+        progress,
+        quiz,
+        quota,
+        report,
+        review_sched,
+        scope,
+        streak,
+        tasks,
+        unlock,
+        upload,
+    )
     with auth_app.test_request_context('/api/private'):
         for helper in (progress._uid, quiz._uid, report._uid, scope._uid,
                        streak._uid, tasks._uid, unlock._uid):
@@ -181,6 +192,7 @@ def test_explicit_mastery_identity_uses_owned_cards_only(auth_app):
 ])
 def test_refresh_cli_isolated_inputs(tmp_path, monkeypatch, capsys, apply, mechanical, stale):
     import sys
+
     from scripts import refresh_stale_quiz_items as script
     monkeypatch.delenv('DEEPSEEK_API_KEY', raising=False)
     argv = ['refresh', '--db', str(tmp_path / 'refresh.sqlite3')]
@@ -224,13 +236,17 @@ def test_database_uri_validation(auth_app, monkeypatch, tmp_path):
 
 
 def test_schedule_service_rejects_other_users_card(auth_app):
-    from scripts import ingest_kb
     from pathlib import Path
+
     from services import cards, review_sched
+
+    from scripts import ingest_kb
     with auth_app.app_context():
         con = get_db()
-        con.execute("INSERT INTO users VALUES(1,'owner','test','owner','t')")
-        con.execute("INSERT INTO users VALUES(2,'other','test','member','t')")
+        con.execute("INSERT INTO users (id, username, password_hash, role, created_at) VALUES(1,'owner','test','owner','t')")
+        con.execute("INSERT INTO households(id,name,created_at) VALUES(2,'别家','t')")
+        con.execute("INSERT INTO users (id, username, password_hash, role, created_at) VALUES(2,'other','test','member','t')")
+        con.execute('UPDATE users SET household_id=2 WHERE id=2')  # 跨户：不应看到本户卡片
         ingest_kb.ingest_file(con, Path(__file__).parent / 'fixtures/cards-contract-1.jsonl')
         before = dict(con.execute('SELECT * FROM cards WHERE id=1').fetchone())
         assert cards.card_schedule(con, 1, user_id=2).fetchone() is None
@@ -248,7 +264,7 @@ def test_foreign_and_missing_session_and_draft_have_identical_404(auth_app):
     client.post('/api/auth/bootstrap', json={'username': 'owner', 'password': 'password123'})
     with auth_app.app_context():
         con = get_db()
-        con.execute("INSERT INTO users VALUES(2,'B','unused','member','t')")
+        con.execute("INSERT INTO users (id, username, password_hash, role, created_at) VALUES(2,'B','unused','member','t')")
         con.execute("INSERT INTO upload_jobs(id,book_hash,filename,pages,status,stage,created_at,updated_at,owner_id) "
                     "VALUES(1,'hash','x.pdf',1,'ready','ready','t','t',1)")
         con.execute("INSERT INTO card_drafts(id,job_id,book_hash,payload,confidence,created_at) "

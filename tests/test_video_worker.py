@@ -1,7 +1,7 @@
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
-from contextlib import contextmanager
 
 BACKEND = Path(__file__).resolve().parents[1] / "backend"
 sys.path.insert(0, str(BACKEND))

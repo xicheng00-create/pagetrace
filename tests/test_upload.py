@@ -27,7 +27,7 @@ def pdf_bytes(pages=2, text=True):
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv('DATABASE_PATH', str(tmp_path / 'db.sqlite3'))
     app = create_app('development')
-    from data.models import migrate, migrate_upload
+    from data.models import migrate_upload
     with app.app_context():
         migrate_upload(get_db())
         get_db().commit()
@@ -106,6 +106,7 @@ def test_extract_cli(tmp_path, monkeypatch, capsys):
 
 def test_db_failure_removes_only_new_pdf(tmp_path):
     import sqlite3
+
     from data.models import migrate, migrate_upload
     from data.s2_schema import fresh_schema
     from services.upload import accept_upload
