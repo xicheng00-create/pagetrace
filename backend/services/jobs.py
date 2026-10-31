@@ -2,6 +2,16 @@ from flask import g, has_request_context
 
 from services.clock import now_iso
 
+STAGE_LABELS = {
+    "queued": "排队中",
+    "extracting": "读取 PDF 文字",
+    "segmenting": "按章切书",
+    "cardgen": "生成知识卡片",
+    "gated": "校验卡片",
+    "ready": "草稿已就绪",
+    "failed": "处理失败",
+}
+
 NEXT = {
     "queued": {"extracting", "failed"},
     "extracting": {"segmenting", "failed"},
@@ -35,6 +45,18 @@ def transition(con, job_id, status, progress, error=None, user_id=None):
     )
     if cur.rowcount != 1:
         raise ValueError("任务状态已变化，请重试")
+    con.commit()
+
+
+def set_progress(con, job_id, progress, user_id):
+    """块级进度：阶段不变，只推进百分比（供前端估时）。"""
+    uid = _uid(user_id)
+    if uid is None:
+        raise ValueError("authenticated user required")
+    con.execute(
+        "UPDATE upload_jobs SET progress=?, updated_at=? WHERE id=? AND owner_id=? AND status='cardgen'",
+        (int(progress), now_iso(), job_id, uid),
+    )
     con.commit()
 
 

@@ -29,12 +29,38 @@ def upload():
         return e_input(str(exc))
 
 
+def _eta_label(result):
+    """按已跑时间与百分比估剩余分钟（前端零计算：文案由后端拼好下发）。"""
+    from datetime import datetime
+
+    from services.clock import now
+
+    progress = int(result.get("progress") or 0)
+    raw = result.get("created_at") or ""
+    try:
+        started = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    used = max(0, int((now() - started).total_seconds() // 60))
+    if progress <= 0:
+        return None
+    if progress >= 100:
+        return f"共 {used} 分钟"
+    if used < 1:
+        return None  # 不足一分钟不估算，免得给「还需 1 分钟」的假精度
+    left = max(1, round(used * (100 - progress) / progress))
+    return f"已用 {used} 分钟，预计还需 {left} 分钟"
+
+
 @bp.get("/api/upload/jobs/<int:job_id>")
 def job(job_id):
     from middleware.errors import e_not_found
-    from services.jobs import get_job
+    from services.jobs import STAGE_LABELS, get_job
 
     result = get_job(get_db(), job_id, g.user_id)
+    if result:
+        result["stage_label"] = STAGE_LABELS.get(result.get("stage"), result.get("stage"))
+        result["eta_label"] = _eta_label(result)
     return ok(result) if result else e_not_found()
 
 

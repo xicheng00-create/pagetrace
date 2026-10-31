@@ -42,7 +42,7 @@ from api.weak import bp as weak_bp  # noqa: E402
 from config import get_config  # noqa: E402
 from data import db as db_mod  # noqa: E402
 
-version = "0.18.20"
+version = "0.18.21"
 FRONTEND_DIR = BACKEND_DIR / "frontend"
 
 

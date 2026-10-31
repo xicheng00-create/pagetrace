@@ -11,7 +11,7 @@ REPO_ROOT = BACKEND_DIR.parent
 
 class BaseConfig:
     S2_OWNER_USERNAME = os.environ.get("S2_OWNER_USERNAME", "owner")
-    VERSION = "0.18.20"
+    VERSION = "0.18.21"
     APP_SECRET = os.environ.get("APP_SECRET", "")
     JWT_SECRET = os.environ.get("JWT_SECRET", "") or os.environ.get("APP_SECRET", "") or "development-only-change-me"
     JWT_TTL_HOURS = int(os.environ.get("JWT_TTL_HOURS", "720"))
@@ -95,6 +95,12 @@ class BaseConfig:
     HARD_INTERVAL_HOURS = int(os.environ.get("HARD_INTERVAL_HOURS", "12"))
     # learn_count ≥ 此值且最近一次 good → status='mastered'（掌握度分子）
     MASTER_MIN_LEARN = int(os.environ.get("MASTER_MIN_LEARN", "3"))
+
+    # Tutor（规格 v0.1 §5）：每人每日调用上限 + 检索/上下文口径；上限只走配置，禁止散落硬编码。
+    TUTOR_DAILY_LIMIT = int(os.environ.get("TUTOR_DAILY_LIMIT", "40"))
+    TUTOR_TOP_K = int(os.environ.get("TUTOR_TOP_K", "5"))
+    TUTOR_HISTORY_ROUNDS = int(os.environ.get("TUTOR_HISTORY_ROUNDS", "6"))
+    TUTOR_LLM_TIMEOUT = int(os.environ.get("TUTOR_LLM_TIMEOUT", "60"))
 
     # 提醒（OPS-004）
     REMIND_AT = os.environ.get("REMIND_AT", "20:00")

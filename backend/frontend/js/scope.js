@@ -39,8 +39,8 @@
     if (!books.length) {
       app.innerHTML = `${UI.crumb([{ label: '图书范围' }])}${UI.emptyHTML({
         label: '空 · Empty', title: '还没有书',
-        desc: '入库书之后，这里会出现可勾选的图书。',
-        howto: '怎么产生内容：在知识库侧导出契约文件，再跑 <code>backend/scripts/ingest_kb.py</code> 入库。',
+        desc: '书架上有书之后，这里会出现可勾选的图书。',
+        howto: '上传一本 PDF，后台出完草稿确认后，书就在这里可选。',
         href: '#/', hrefText: '返回首页',
       })}`;
       return;

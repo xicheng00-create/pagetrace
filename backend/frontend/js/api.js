@@ -33,14 +33,19 @@
     document.getElementById('authSubmit').textContent = register ? '註冊 / 建立小組' : bootstrap ? '建立第一個帳號' : '登入';
     document.getElementById('authSwitch').textContent = register ? (state.needs_bootstrap ? '建立第一個帳號' : '返回登入') : '註冊 / 建立小組';
   }
-  // 顶栏账号区：头像 + 退出登录。单独挂载，兼容 DOMContentLoaded 已过的情况。
+  // 顶栏账号区：只留圆形头像（点进个人空间）。退出登录在个人空间页内。
   function mountAccountUI() {
-  const logout = document.createElement('button'); logout.type = 'button'; logout.id = 'logoutBtn'; logout.className = 'logout-btn'; logout.textContent = '退出登录';
-  logout.addEventListener('click', async () => { await api.post('/api/auth/logout', {}); panel(true); refreshState(); location.hash = '#/'; });
+  window.AppLogout = async () => {
+    await api.post('/api/auth/logout', {});
+    localStorage.removeItem('avatarLetter');   // 换账号不残留上一个用户的首字母
+    document.querySelectorAll('#avatarBtn').forEach(el => { el.textContent = '我'; });
+    panel(true); refreshState(); location.hash = '#/';
+  };
   const avatar = document.createElement('a');
   avatar.id = 'avatarBtn'; avatar.className = 'avatar'; avatar.href = '#/account';
   avatar.setAttribute('aria-label', '我的账号');
-  avatar.textContent = document.documentElement.dataset.avatarLetter || '我';
+  avatar.textContent = localStorage.getItem('avatarLetter')
+    || document.documentElement.dataset.avatarLetter || '我';
   document.querySelector('.topbar-inner')?.append(avatar);
   fetch('/api/account', {credentials:'same-origin'})
     .then(r => r.ok ? r.json() : null)
@@ -48,11 +53,11 @@
       if (j && j.data) {
         const letter = (j.data.username || '我').slice(0, 1).toUpperCase();
           document.documentElement.dataset.avatarLetter = letter;
+          localStorage.setItem('avatarLetter', letter);
         document.querySelectorAll('#avatarBtn').forEach(el => { el.textContent = letter; });
       }
     })
     .catch(() => {});
-  document.querySelector('.topbar-inner')?.append(logout);
   }
 
   async function refreshState() {

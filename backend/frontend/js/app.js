@@ -243,7 +243,7 @@
     const upload = uploadRes.data || { can_upload: false, reason: '暂时无法读取上传额度，请稍后重试' };
     const uploadEntry = `<a class="row${upload.can_upload ? '' : ' disabled'}" href="#/upload"${upload.can_upload ? '' : ' aria-disabled="true"'}>
       <span class="l"><b>上傳自己的書</b><span>${esc(upload.can_upload
-        ? '文字型 PDF → 知識卡片草稿，確認後才進複習'
+        ? 'PDF 上传后自动切书出卡，约 10–30 分钟，出完再确认'
         : (upload.reason || '上传暂不可用，请稍后重试'))}</span></span>
     </a>`;
 
@@ -253,10 +253,10 @@
     if (!subs.length) {
       html(emptyHTML({
         label: '空 · Empty',
-        title: '书架空着 · 等书入库',
-        desc: '上传文字型 PDF 生成草稿，确认后即可开始复习。',
-        howto: '怎么产生内容：在知识库侧跑 <code>export_cards.py</code> 导出契约文件，'
-          + '再跑本 app 的 <code>backend/scripts/ingest_kb.py</code> 入库；首章入库即解锁，卡就会出现在这里。',
+        title: '书架空着 · 先放一本书',
+        desc: '上传一本文字型 PDF，后台会自动切书、生成知识卡片草稿。',
+        howto: '点「上传自己的书」选文件就行，过程中不用守着：一般在 10–30 分钟内出草稿，'
+          + '书越大越久；出完后到「草稿」确认，卡片就会进入复习。',
         href: null,
       }) + `<div class="rowlist">${spaceEntry}${familyEntry}${uploadEntry}${invitesEntry}</div>`);
       return;
@@ -336,15 +336,6 @@
           <span class="l"><b>本周概况</b><span>复习 · 正确率</span></span>
         </a>
       </div>
-      <div class="sectitle">学科进度</div>
-      <div class="rowlist">
-        ${subs.map((s, i) => `
-          <a class="progline rise" style="--d:${340 + i * 50}" href="#/subject/${s.id}">
-            <span class="nm">${esc(s.name)}</span>
-            <span class="bar"><i style="--p:${(mWidth(s.mastery)) / 100}"></i></span>
-            <span class="num">${mCount(s.mastery)}</span>
-            ${masteryGauges(s.mastery)}
-          </a>`).join('')}
       </div>`);
   }
 
@@ -381,8 +372,8 @@
     if (!subs.length) {
       html(emptyHTML({
         label: '空 · Empty', title: '还没有学科',
-        desc: '上游知识库导出契约入库后，这里会出现第一个学科。',
-        howto: '怎么产生内容：跑 <code>backend/scripts/ingest_kb.py</code> 把导出契约入库。',
+        desc: '上传一本书，后台会自动切书出卡，这里就会出现第一个学科。',
+        howto: '点「上传自己的书」选 PDF；出完草稿确认后，学科与卡片自动出现。',
         href: null,
       }));
       return;
@@ -507,9 +498,8 @@
     if (!books.length) {
       html(`${crumb([{ label: s.name }])}${masteryNote()}${emptyHTML({
         label: '空 · Empty', title: '该学科下还没有书',
-        desc: '学科存在，但尚未入库任何书。',
-        howto: '怎么产生内容：在知识库侧导出该学科某本书的契约文件，再跑 '
-          + '<code>backend/scripts/ingest_kb.py</code> 入库（首章入库即解锁）。',
+        desc: '这个学科下还没有书。',
+        howto: '上传一本属于这个学科的 PDF，后台出完草稿并确认后，书就会出现在这里。',
         href: '#/subjects', hrefText: '返回知识卡片',
       })}`);
       return;
@@ -669,25 +659,43 @@
   }
 
   async function accountPage() {
-    const d = (await api.get('/api/account')).data;
-    const t = d.today || {};
-    const bar = (label, obj) => obj ? `<p class="taskline"><b>${label}</b> ${obj.done}/${obj.target}${obj.target > 0 && obj.done >= obj.target ? ' ✅' : ''}</p>` : '';
+    const [d, subsRes] = await Promise.all([
+      api.get('/api/account').then(r => r.data),
+      api.get('/api/subjects').catch(() => ({ data: { subjects: [] } })),
+    ]);
+    const subs = (subsRes.data && subsRes.data.subjects) || [];
+    const learned = d.learned || 0, totalCards = d.total || 0;
     html(`<a class="back-link" href="#/">← 返回首页</a>
       <div class="acct-head"><span class="avatar avatar-lg">${esc((d.username || '我').slice(0, 1).toUpperCase())}</span>
         <div><h1 class="display">个人空间</h1><p class="sub sub-name">${esc(d.username)}</p><p class="sub">${esc(d.role === 'owner' ? '小组创建者' : '小组成员')} · ${esc(d.household)}</p></div></div>
-      <section class="block"><h2 class="h2">我的进度</h2>
-        ${bar('看视频', t.video)}${bar('复习卡片', t.review)}${bar('刷题', t.quiz)}
-        <p class="sub">覆盖率 ${d.coverage}% · 连续 ${d.streak} 天 · ${t.done ? '今天已达成' : '今天还没达成'}</p></section>
+      <section class="block"><h2 class="h2">学习概况</h2>
+        <p class="sub">已学 <span class="tnum">${learned}</span> / 共 <span class="tnum">${totalCards}</span> 张 · 覆盖率 <span class="tnum">${d.coverage}%</span></p></section>
+      <section class="block"><h2 class="h2">学科进度</h2>
+        ${subs.length ? `<div class="rowlist">${subs.map((s, i) => `
+          <a class="progline rise" style="--d:${120 + i * 50}" href="#/subject/${s.id}">
+            <span class="nm">${esc(s.name)}</span>
+            <span class="bar"><i style="--p:${(mWidth(s.mastery)) / 100}"></i></span>
+            <span class="num">${mCount(s.mastery)}</span>
+            ${masteryGauges(s.mastery)}
+          </a>`).join('')}</div>`
+        : '<p class="sub">还没有书：上传一本 PDF，出卡确认后这里会显示学科进度。</p>'}</section>
       <section class="block"><h2 class="h2">账号设置</h2>
         <label><input id="acctShare" type="checkbox" ${d.shared ? 'checked' : ''}> 允许小组成员查看我的进度</label>
         <h3 class="h3">修改密码</h3>
         <form id="pwForm" class="stack">
+          <label for="pwOld">当前密码</label>
           <input id="pwOld" type="password" autocomplete="current-password" placeholder="当前密码">
+          <label for="pwNew">新密码（≥8 位）</label>
           <input id="pwNew" type="password" autocomplete="new-password" placeholder="新密码（≥8 位）">
+          <label for="pwNew2">再输一次新密码</label>
           <input id="pwNew2" type="password" autocomplete="new-password" placeholder="再输一次新密码">
           <button class="btn" type="submit">保存新密码</button>
           <p id="pwMsg" class="sub" hidden></p>
-        </form></section>`);
+        </form>
+        <button class="btn quiet" id="logoutBtn" type="button">退出登录</button></section>`);
+    document.getElementById('logoutBtn').onclick = async () => {
+      if (window.AppLogout) await window.AppLogout();
+    };
     document.getElementById('acctShare').onchange = async e => {
       await api.post('/api/family/share', {shared: e.target.checked}); await accountPage();
     };

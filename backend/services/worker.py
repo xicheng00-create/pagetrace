@@ -8,7 +8,7 @@ from pathlib import Path
 from data.db import get_db
 
 from services import cardgen, llm
-from services.jobs import get_job, transition
+from services.jobs import get_job, set_progress, transition
 from services.segment import SegmentationError, segment_book
 from services.upload import ExtractionError, extract_text, save_drafts
 
@@ -56,7 +56,8 @@ def run_job(con, job_id, root, user_id):
         advance("cardgen", 30)
         retries = min(3, max(0, int(os.environ.get("UPLOAD_BLOCK_RETRIES", "2"))))
         failed = []
-        for block in blocks:
+        total_blocks = len(blocks)
+        for idx, block in enumerate(blocks):
             for attempt in range(retries + 1):
                 try:
                     save_drafts(
@@ -68,6 +69,11 @@ def run_job(con, job_id, root, user_id):
                     logger.error("upload job=%s exception=%s category=%s", job_id, type(exc).__name__, kind)
                     if attempt == retries:
                         failed.append(kind)
+            # 块级进度：30% → 90%，让用户看到真实推进（失败块也计入，避免停在 30%）
+            try:
+                set_progress(con, job_id, 30 + (60 * (idx + 1)) // max(total_blocks, 1), user_id=user_id)
+            except Exception as exc:  # 进度写失败不得中断出卡
+                logger.error("upload job=%s progress exception=%s", job_id, type(exc).__name__)
         if not blocks or len(failed) == len(blocks):
             kind = failed[0] if failed else "parse"
             transition(con, job_id, "failed", 0, f"{kind}: {_failure_message(kind)}", user_id=user_id)

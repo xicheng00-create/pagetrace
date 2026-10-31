@@ -578,3 +578,51 @@ def test_provider_failure_through_llm_layer(client, monkeypatch):
         r = get_job(con, job_id, user_id=1)
     assert 'provider' in r['error']
     assert 'PRIVATE' not in r['error']
+
+
+def test_job_progress_labels(client):
+    """上传进度对用户可见的文案：中文阶段名 + 预计剩余（前端不做算术）。"""
+    job_id = submit(client, pdf_bytes()).json['data']['id']
+    with client.application.app_context():
+        con = get_db()
+        transition(con, job_id, 'extracting', 10, user_id=1)
+        transition(con, job_id, 'segmenting', 20, user_id=1)
+        transition(con, job_id, 'cardgen', 30, user_id=1)
+        from services.jobs import set_progress
+        set_progress(con, job_id, 60, user_id=1)
+    d = client.get(f'/api/upload/jobs/{job_id}').json['data']
+    assert d['stage'] == 'cardgen' and d['progress'] == 60
+    assert d['stage_label'] == '生成知识卡片'
+    assert d['eta_label'] is None  # 刚起不到一分钟，不报假精度
+    with client.application.app_context():
+        con = get_db()
+        transition(con, job_id, 'gated', 90, user_id=1)
+        transition(con, job_id, 'ready', 100, user_id=1)
+    done = client.get(f'/api/upload/jobs/{job_id}').json['data']
+    assert done['stage_label'] == '草稿已就绪'
+    assert done['eta_label'].startswith('共 ')
+    # 块级进度只允许在 cardgen 阶段生效，且别的 owner 改不动
+    with client.application.app_context():
+        con = get_db()
+        set_progress(con, job_id, 10, user_id=1)
+    assert client.get(f'/api/upload/jobs/{job_id}').json['data']['progress'] == 100
+
+
+def test_eta_label_estimates_after_minute():
+    from api.upload import _eta_label
+    from datetime import datetime, timedelta
+    from services.clock import iso, now
+    created = iso(now() - timedelta(minutes=10))
+    label = _eta_label({'progress': 50, 'created_at': created})
+    assert label == '已用 10 分钟，预计还需 10 分钟'
+
+
+def test_eta_label_edge_cases():
+    """进度为 0 / 时间戳坏掉 → 不猜时间；满 100% 只报总耗时。"""
+    from api.upload import _eta_label
+    from services.jobs import set_progress
+    assert _eta_label({'progress': 0, 'created_at': '2026-01-01T00:00:00+08:00'}) is None
+    assert _eta_label({'progress': 50, 'created_at': 'not-a-time'}) is None
+    assert _eta_label({'progress': 100, 'created_at': '2000-01-01T00:00:00+08:00'}).startswith('共 ')
+    with pytest.raises(ValueError, match='authenticated'):
+        set_progress(None, 1, 50, user_id=None)

@@ -221,8 +221,7 @@
         <h2 class="h2">今天没有要复习的卡</h2>
         <p class="sub">到期卡会自动出现在这里；未学新卡也可随时学，无配额、不催。</p>
         <div class="hairline"></div>
-        <p class="sub">怎么产生内容：上游知识库导出契约 → 跑
-          <code>backend/scripts/ingest_kb.py</code> 入库 → 首章解锁，卡就会进队列。</p>
+        <p class="sub">书架还是空的？上传一本 PDF，后台出完草稿确认后，卡片就会进队列。</p>
         <p class="retry"><a class="btn" href="#/subjects">去知识卡片</a></p>
       </section>`;
   }

@@ -24,6 +24,8 @@ def _progress(con, uid):
     except Exception:  # 读路径不得因连胜快照写库失败而 500
         streak_days = 0
     return {
+        "learned": learned,
+        "total": total,
         "coverage": learned * 100 // max(total, 1),
         "streak": streak_days,
         "today": {

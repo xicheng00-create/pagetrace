@@ -11,7 +11,7 @@
       const d = (await api.get('/api/upload/quota')).data;
       app.innerHTML = `${UI.crumb([{label: '上传自己的书'}])}
         <h1 class="display">上传自己的书</h1>
-        <p class="sub">文字型 PDF → 知识卡片草稿 → 确认入库。扫描件暂不支持。</p>
+        <p class="sub">文字型 PDF → 知识卡片草稿 → 确认入库。上传后后台自动切书、出卡，不用守着；扫描件暂不支持。</p>
         <p id="uploadQuota" class="sub tnum">${UI.esc(d.label)}</p>
         <div class="upload-fields"><label for="uploadFile">选择 PDF</label>
           <input id="uploadFile" type="file" accept="application/pdf,.pdf" ${d.can_upload ? '' : 'disabled'} aria-describedby="uploadWhy"></div>
@@ -44,11 +44,15 @@
       app.appendChild(notice);
     }
   }
+  // 阶段中文名与预计耗时都由后端下发（stage_label / eta_label）；前端零计算
+  const FALLBACK = {queued:'排队中', extracting:'读取 PDF 文字', segmenting:'按章切书',
+    cardgen:'生成知识卡片', gated:'校验卡片', ready:'草稿已就绪', failed:'处理失败'};
   async function showJob(id, poll = false) {
     const d = (await api.get(`/api/upload/jobs/${id}`)).data;
     const node = document.getElementById('uploadProgress');
     if (!node || location.hash !== '#/upload') return;
-    node.textContent = `${d.stage} · ${d.progress}%${d.error ? ' · ' + d.error : ''}`;
+    const label = d.stage_label || FALLBACK[d.stage] || d.stage;
+    node.textContent = `${label} · ${d.progress}%${d.eta_label ? ' · ' + d.eta_label : ''}${d.error ? ' · ' + d.error : ''}`;
     if (poll && !['ready', 'failed'].includes(d.status)) {
       timer = setTimeout(() => showJob(id, true).catch(e => {
         document.getElementById('uploadWhy').textContent = e.message;
