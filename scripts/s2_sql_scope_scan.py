@@ -14,7 +14,9 @@ sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 from s2_schema_sql_proof import ddl_only, resolve_schema
 
 OWNED = {'books', 'upload_jobs', 'card_reviews', 'quiz_attempts', 'streak_days',
-         'streak_freezes', 'reminder_log', 'prefs'}
+         'streak_freezes', 'reminder_log', 'prefs',
+         # Tutor 四表（规格 v0.1 §8）：conversations / tutor_actions / quota_usage 按 user 归属。
+         'conversations', 'tutor_actions', 'quota_usage'}
 OFFLINE = {
     'backend/data/models.py',
     'backend/scripts/migrate_status_reviewing.py',

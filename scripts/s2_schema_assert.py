@@ -6,7 +6,10 @@ from pathlib import Path
 
 OWNED = {'books': 'owner_id', 'upload_jobs': 'owner_id', 'card_reviews': 'user_id',
          'quiz_attempts': 'user_id', 'streak_days': 'user_id', 'streak_freezes': 'user_id',
-         'reminder_log': 'user_id', 'prefs': 'user_id'}
+         'reminder_log': 'user_id', 'prefs': 'user_id',
+         # Tutor 四表（规格 v0.1 §8）：会话/动作/配额都按 user 归属，写入这些表必须带绑定身份。
+         # messages 经 conversation_id 归属，不单列 user_id（避免身份两处各说各话）。
+         'conversations': 'user_id', 'tutor_actions': 'user_id', 'quota_usage': 'user_id'}
 
 
 def assert_schema(path):

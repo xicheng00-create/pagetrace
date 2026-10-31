@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.20.0] — 2026-10-31
+
+- Tutor 第二步：**澄清反问**。主臂 top1 覆盖率 < 0.5 且 `mode=free` 时不再硬答，先返回
+  `{"type": "clarify", "question": "你说的是哪一种？", "options": [3–5 个概念]}`；候选来自概念名 2-gram 重叠 +
+  别名表桥接的概念（别名表仍冻结，只当兜底与候选来源）。
+- `POST /api/tutor/chat` 接受 `concept_id` 重发（可只带 `concept_id`）：命中就在该概念下取卡作答，跳过检索；
+  概念不可见 → 404。
+- 配额口径：`type=clarify` / `type=not_found` 的回合不调模型、不扣次数，真正作答才扣；
+  同一会话连续两次澄清仍未点选 → 回「库里没找到贴合的页」，`sources=[]`，不编造。
+- 新增 `tests/test_tutor_clarify.py`（11 条，含 A9 弱命中反问 + 点选作答、A10 两次澄清后如实说没有、
+  跨户 404、澄清计数在正常作答后归零）。
+- 顺带修复 step-1 回放造成的两处重复块（`backend/config.py` 的 TUTOR_* 配置、`services/llm.py` 的 tutor 无 key 早退），
+  并补齐 `DESIGN_SPEC.md` 被回放删掉的 0.18.x 历史段。
+
+## [0.19.0] — 2026-10-31
+
+- Tutor 后端第一步（规格 `~/AgentMemory/projects/xueer-tutor-spec.md` v0.1）：新增 `conversations` /
+  `messages` / `tutor_actions` / `quota_usage` 四表（新库与既有库同一 `migrate()` 路径，幂等）。
+- 检索层 `backend/ai/rag.py`：口径同 `AI学习小组app/backend/ai/rag.py` 的中文 2-gram + query 命中比例，
+  数据源换成 `cards` + `concepts`，按 household / `subject_id` / `chapter_id` 缩范围；无新依赖、无向量库。
+- 编排 `backend/ai/tutor.py` + `ai/tutor_context.py` + `ai/tutor_prompts.py`：四场景 card / free / quiz / plan，
+  上下文 = 命中卡 + 概念 + 错题摘要 + 今日队列；模型不可用退成「只给库内原文」并标 `fallback`。
+- 新接口：`POST /api/tutor/chat`（非流式）、`GET /api/tutor/quota`、`GET /api/tutor/conversations/<id>/messages`。
+- 配额：每人每日调用上限 `TUTOR_DAILY_LIMIT`（`.env`，起值 40），超限 429 `E_QUOTA` + 「今天的 tutor 次数用完了，明天再来」。
+- 边界：tutor 只写自己的三张表，不写 `cards` / `card_reviews` / `prefs`；跨用户会话一律 404。
+- 检索范围不按 `ch.unlocked_at` 过滤：解锁是学习流进度，不是访问边界（本库 1576 张卡有 1130 张在未解锁章，
+  含 tutor 最需要的「第12章 · 权力和暴力」）；卡片读取仍只走 `services/card_quiz_pool` 一个入口。
+- `mode=card` 时 `message` 可省（默认「讲讲这张卡」），贴卡讲解不用先打字。
+- 新增测试 27 条（`tests/test_tutor_{retrieval,chat,boundary}.py`）+ 自测脚本 `scripts/tutor_retrieval_probe.py`；
+  已知限制：纯关键词口径下短口语问句（如「他动手了我怕他」）命中 0/5，SQL 可达上限也是 0。
+
 ## [0.18.21] — 2026-10-31
 
 - 顶栏只留圆形头像（点进个人空间）；「退出登录」移入个人空间页底部。

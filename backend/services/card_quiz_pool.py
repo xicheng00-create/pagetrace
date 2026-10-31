@@ -67,6 +67,45 @@ def wrong_answer_cards(con, user_id):
     )
 
 
+def retrieval_cards(con, user_id, subject_id=None, chapter_id=None):
+    """Tutor 检索用：整库可见卡（只读，**不**建用户状态）。
+
+    范围 = 同户成员的书 × **全部章**；可按 subject / chapter 收窄。
+    不调 ensure_state —— 检索不得因为「问了一句话」就在用户身上落记录。
+    """
+    where, params = "", []
+    if subject_id:
+        where += " AND c.subject_id=?"
+        params.append(subject_id)
+    if chapter_id:
+        where += " AND ch.id=?"
+        params.append(chapter_id)
+    return con.execute(
+        "SELECT c.id AS card_id, c.concept_id, c.subject_id, c.front, c.back,"
+        " COALESCE(c.title,'') AS title, cp.name AS concept_name, COALESCE(cp.tags,'') AS tags,"
+        " ch.id AS chapter_id, ch.name AS chapter_name"
+        " FROM cards c JOIN concepts cp ON cp.id=c.concept_id"
+        " JOIN chapters ch ON ch.id=cp.chapter_id JOIN books b ON b.id=ch.book_id"
+        " WHERE b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id="
+        "(SELECT u1.household_id FROM users u1 WHERE u1.id=?))" + where,
+        [user_id, *params],
+    )
+
+
+def retrieval_card(con, card_id, user_id):
+    """Tutor 贴卡讲解用单卡（只读）；不可见返回 None，由调用方转 404。"""
+    return con.execute(
+        "SELECT c.id AS card_id, c.concept_id, c.front, c.back, COALESCE(c.title,'') AS title,"
+        " cp.name AS concept_name, ch.id AS chapter_id, ch.name AS chapter_name"
+        " FROM cards c JOIN concepts cp ON cp.id=c.concept_id"
+        " JOIN chapters ch ON ch.id=cp.chapter_id JOIN books b ON b.id=ch.book_id"
+        " WHERE b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id="
+        "(SELECT u1.household_id FROM users u1 WHERE u1.id=?))"
+        " AND c.id=?",
+        (user_id, card_id),
+    ).fetchone()
+
+
 def chapter_answer_pool(con, chapter_id, exclude_card_id, user_id=None):
     """Return same-book distractors only for the current user's book."""
     from services.user_state import ensure_state

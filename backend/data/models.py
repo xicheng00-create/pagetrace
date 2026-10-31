@@ -204,6 +204,10 @@ def migrate_upload(con):
 
 
 def migrate(con) -> None:  # pragma: no cover
+    from data import tutor_schema
+
+    # Tutor 四表（规格 v0.1 §8）：幂等建表，新库/既有库同一入口。
+    tutor_schema.ensure(con)
     con.execute(
         "CREATE TABLE IF NOT EXISTS video_views (user_id INTEGER NOT NULL, video_id INTEGER NOT NULL, "
         "day TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(user_id,video_id,day))"

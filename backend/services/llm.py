@@ -72,8 +72,8 @@ def complete_block(text, *, feature='cardgen', **kwargs):
 
 
 def complete(messages, *, base_url=None, model=None, api_key=None, timeout=None,
-             thinking_disabled=True, feature="quiz"):
-    if feature not in ("quiz", "cardgen", "dedupe"):
+             thinking_disabled=True, feature="quiz", with_usage=False):
+    if feature not in ("quiz", "cardgen", "dedupe", "tutor"):
         raise LLMConfigError("未知 LLM feature")
     if feature in ('cardgen', 'dedupe'):
         if len(messages) != 2 or messages != messages_for(feature, messages[-1].get('content')):
@@ -91,6 +91,9 @@ def complete(messages, *, base_url=None, model=None, api_key=None, timeout=None,
         key = config('DEEPSEEK_API_KEY', '')
     if feature == 'quiz' and not key and provider != 'local':
         return None
+    if feature == 'tutor' and not key and provider != 'local':
+        # 无 key 时 tutor 退成「只给库内原文」（ai/tutor.py 的 fallback），不去打一次注定 401 的请求。
+        return (None, {}) if with_usage else None
     payload = {'model': model or config('LLM_MODEL'), 'messages': messages, 'temperature': 0.4}
     # 关思考只对懂这个字段的档位发（proxy/official）；local 档（Ollama/LM Studio/vLLM 等）不认
     # 非标准字段，硬塞可能 400。local 档也不拒绝 reasoning_tokens：本地推理不花钱，
@@ -122,4 +125,8 @@ def complete(messages, *, base_url=None, model=None, api_key=None, timeout=None,
         raise LLMError('LLM 调用或用量落账失败') from None
     if clamp_thinking and reasoning_tokens(result):
         raise LLMError('模型返回 reasoning_tokens > 0，拒绝采纳')
-    return result['choices'][0]['message']['content']
+    content = result['choices'][0]['message']['content']
+    if with_usage:
+        # 只有拿到真实 usage 才回传；缺字段就是空 dict，调用方据此记 NULL 而不是造假 0。
+        return content, result.get('usage') or {}
+    return content

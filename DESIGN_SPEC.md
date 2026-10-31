@@ -1,8 +1,8 @@
-# DESIGN_SPEC — pagetrace v0.18.21
+# DESIGN_SPEC — pagetrace v0.20.0
 
 | 项 | 值 |
 |---|---|
-| 版本 | 0.18.21（**与 `backend/app.py` 的 `version` 一致** · 版本号诚实规则见 `CLAUDE.md §5`） |
+| 版本 | 0.20.0（**与 `backend/app.py` 的 `version` 一致** · 版本号诚实规则见 `CLAUDE.md §5`） |
 | 日期 | 2026-10-31 |
 | 作者 | pm（Hermes） |
 | 状态图例 | ✅ 已实现并验证 · ⚠️ 部分/未验证（须写原因）· ❌ 未实现 · 🔒 已冻结（不可单方改） |
@@ -963,6 +963,82 @@ S1-DISPLAY-SCOPE：运行时计算属性名不保证拦截；违规处置：阻�
 
 ### [0.16.4]
 冻结余额为 0 时的提示文案独占页头下方一行（仅 0 时显示）；页头标题、连胜组与退出登录一律不收缩、不折行。
+
+### [0.20.0] 2026-10-31
+
+**Tutor 第二步：澄清反问（规格 §9e）**
+
+**REQ-TUTOR-06 弱命中先反问，再作答（对后续一律适用）**
+
+- 触发点：任何 tutor `POST /api/tutor/chat`、检索层弱命中判定、澄清候选生成、`concept_id` 点选作答的改动。
+- 弱命中定义：`mode=free` 且主臂 top1 覆盖率 **< 0.5**（`ai/rag.py::WEAK_COVERAGE`）且该问句**没有**可点选的概念候选。
+  命中弱命中 → 不调模型、不给答案，返回 `{"type": "clarify", "question": "你说的是哪一种？", "options": [...]}`。
+- 候选 options 口径：3–5 个，按「与 query 的 2-gram 重叠数」降序、按 `concept_id` 去重；
+  来源两路 —— ① 概念名直接重叠 ② 别名臂（`ai/tutor_synonyms.py`）把口语句桥到的卡所属概念。
+  **别名表只当兜底与候选来源，不再替用户硬答**（表内容仍冻结，不得新增/改写）。
+- 点选作答：`POST /api/tutor/chat` 接受 `concept_id` 重发（可只带 `concept_id`），命中即**跳过检索**，
+  在该概念下取卡作答，`sources` 只允许出现该概念的卡。
+- 配额：`type=clarify` / `type=not_found` 的回合不调模型、**不扣次数**；真正作答才扣。
+- 兜底：同一会话**连续两次**澄清仍未点选 → 回固定文案「库里没找到贴合的页。…」，
+  `sources=[]`、`fallback=true`、**不得编造**；一次正常作答后计数归零。
+- ⚠️ 口径说明（与 `broadcast-2026-10-31-tutor-step2-pm.md` 字面条件的差异）：派发文写的是
+  「主臂 < 0.5 **且** 别名臂零命中」才反问。但 A9 的验收句「他动手了我怕他」正是别名表**命中**的句子
+  （step-1 实测别名臂 5/5 落地到「亲密伴侣暴力」），按字面条件会直接作答、A9 永远不可能转绿。
+  故本条取「反问优先、别名表退为兜底」：主臂弱即反问，别名臂只供候选与无候选时的兜底作答。
+  若要回退到字面口径，只需在 `ai/tutor.py::_decide_clarify` 恢复 `retrieval["alias_hits"] == 0` 这一条并在
+  `tests/test_tutor_clarify.py` 同步改断言。
+- 违规处置：`tests/test_tutor_clarify.py`（含 A9/A10 两条端到端）转红即不得合并。
+
+### [0.19.0] 2026-10-31
+
+**Tutor 私教后端第一步（规格 `~/AgentMemory/projects/xueer-tutor-spec.md` v0.1）**
+
+**REQ-TUTOR-01 检索口径（对后续一律适用）**
+
+- 触发点：任何 tutor 召回、rerank、检索单元改动。
+- 口径：中文 2-gram 分词 + 「query 命中比例」主分（`score = |query词集 ∩ 文档词集| / |query词集|`），与
+  `AI学习小组app/backend/ai/rag.py` 逐字一致；同分按命中词 IDF（纯词频计数）定序，再按 id 升序，
+  保证同一 query 的 top-k 可复现。**禁止** embedding / 向量库 / 新增依赖。
+- 检索单元：卡片 = 问句 + 子卡标题 + 概念名 + 标签 + 答案；概念 = 概念名 + 标签 + 章名（两表都要覆盖，
+  否则「X 是什么？」这类问句永远命不中概念）。
+- 覆盖路径：召回唯一入口 `backend/ai/rag.py`；卡片读取唯一入口 `services/card_quiz_pool.retrieval_cards`
+  / `retrieval_card`（UP-006 单点）。范围 = 同户成员的书 × **全部章** —— 不按 `ch.unlocked_at` 过滤：
+  解锁是学习流进度，不是访问边界（本库 1576 张卡有 1130 张在未解锁章，含 tutor 最需要的「第12章 · 权力和暴力」）。
+  反证：`tests/test_tutor_retrieval.py::test_locked_chapter_cards_are_still_retrievable`。
+- 违规处置：`tests/test_tutor_retrieval.py` 或 `scripts/tutor_retrieval_probe.py`（口径漂移 / 处境基线回归）
+  转红即不得合并。
+
+**REQ-TUTOR-02 四表与租户归属**
+
+- 表：`conversations` / `messages` / `tutor_actions` / `quota_usage`；建表由 `data/tutor_schema.ensure()` 幂等完成，
+  新库与既有库同一 `migrate()` 路径（不手工改库）。
+- `conversations` / `tutor_actions` / `quota_usage` 带 **NOT NULL `user_id`** + 前导索引 + `users` 外键；
+  `messages` 不存 `user_id`，只经 `conversation_id` 归属（同一会话不会有两个 owner）。
+- 门禁：`scripts/s2_sql_scope_scan.py` 与 `scripts/s2_schema_assert.py` 的 OWNED 已含这三张表；
+  `tests/test_tutor_boundary.py::test_tutor_tables_carry_tenant_columns` 反证。
+
+**REQ-TUTOR-03 每日配额**
+
+- 上限只从配置来：`TUTOR_DAILY_LIMIT`（`.env`，起值 **40**），按东八区自然日、按 `user_id` 计数。
+- 超限：HTTP **429** + `code=E_QUOTA` + 固定文案「今天的 tutor 次数用完了，明天再来」；**被拒的请求不计数**
+  （不因反复重试而虚增）。400/404 在扣配额之前判定，不吃次数。
+- 断言：`tests/test_tutor_chat.py::test_daily_limit_429`、`::test_quota_endpoint_shape`（limit=40）。
+
+**REQ-TUTOR-04 依据边界：只读、库内优先**
+
+- tutor 只写 `conversations` / `messages` / `quota_usage`；**不得**写 `cards` / `card_reviews` / `quiz_attempts` /
+  `prefs`。需要加卡、改计划、调目标时只能出「建议动作」(`tutor_actions.status='pending'`)，由第 2 步确认流落地。
+- system prompt 硬契约：命中即标来源（概念名 · 卡片问句）；库外补充必须整段包在 `〔库外知识〕…〔/库外知识〕`。
+- 断言：`tests/test_tutor_boundary.py`（源码扫描写表白名单 + 跑问答前后用户数据快照逐字不变）。
+
+**REQ-TUTOR-05 模型不可用不得 500**
+
+- 无 key / 超时 / 上游报错 → 退成「只给库内原文」的答复并置 `fallback=true`；库里也没命中时如实说没有。
+- 断言：`tests/test_tutor_chat.py::test_llm_failure_falls_back_to_library`。
+
+**实现状态**：四表 ✅；检索层 ✅（口径断言 + 处境实测见 `results/2026-10-31-pm-tutor-step1.md`）；
+四场景编排 ✅（非流式）；`POST /api/tutor/chat`、`GET /api/tutor/quota`、
+`GET /api/tutor/conversations/<id>/messages` ✅；⚠️ 流式（SSE）、`tutor_actions` 确认流、滚动摘要留给第 2/3 步。
 
 ### [0.18.21] 2026-10-31
 

@@ -35,6 +35,9 @@ ALLOW.update(
             "available_due_count",
             "available_new_count",
             "chapter_pool_counts",
+            # Tutor 检索（只读整库可见卡 + 单卡）；范围谓词与卡池同口径，均由 tests/test_tutor_* 反证。
+            "retrieval_cards",
+            "retrieval_card",
         ]
     }
 )
