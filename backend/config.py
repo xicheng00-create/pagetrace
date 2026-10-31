@@ -11,7 +11,7 @@ REPO_ROOT = BACKEND_DIR.parent
 
 class BaseConfig:
     S2_OWNER_USERNAME = os.environ.get("S2_OWNER_USERNAME", "owner")
-    VERSION = "0.20.0"
+    VERSION = "0.23.0"
     APP_SECRET = os.environ.get("APP_SECRET", "")
     JWT_SECRET = os.environ.get("JWT_SECRET", "") or os.environ.get("APP_SECRET", "") or "development-only-change-me"
     JWT_TTL_HOURS = int(os.environ.get("JWT_TTL_HOURS", "720"))
@@ -101,6 +101,8 @@ class BaseConfig:
     TUTOR_TOP_K = int(os.environ.get("TUTOR_TOP_K", "5"))
     TUTOR_HISTORY_ROUNDS = int(os.environ.get("TUTOR_HISTORY_ROUNDS", "6"))
     TUTOR_LLM_TIMEOUT = int(os.environ.get("TUTOR_LLM_TIMEOUT", "60"))
+    # 概念表路由（规格 §9f）：这一次调用只给 8 秒，超时就静默退回 2-gram，不让用户等
+    TUTOR_ROUTE_TIMEOUT = int(os.environ.get("TUTOR_ROUTE_TIMEOUT", "8"))
 
     # 提醒（OPS-004）
     REMIND_AT = os.environ.get("REMIND_AT", "20:00")

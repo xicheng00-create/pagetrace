@@ -62,11 +62,23 @@ def consume(con, user_id) -> dict:
 
 
 def add_tokens(con, user_id, tokens_in, tokens_out) -> None:
-    """累计本次 token 用量；未知（None）不计，保持 NULL 语义不落假 0。"""
+    """累计本次 token 用量；未知（None）不计，保持 NULL 语义不落假 0。
+
+    路由（`ai/concept_router.py`）也会花钱，而澄清回合**不扣次数**——那种回合里当日行可能还不存在，
+    所以这里用 upsert 建一行 `chat_calls=0` 再累加 token：**记 token 不等于记一次调用**，
+    次数只由 `consume()` 加（规格 §9f 第三条）。
+    """
     if not tokens_in and not tokens_out:
         return
     con.execute(
-        "UPDATE quota_usage SET tokens_in=tokens_in+?, tokens_out=tokens_out+?"
-        " WHERE user_id=? AND day=?",
-        (tokens_in or 0, tokens_out or 0, user_id, day()),
+        "INSERT INTO quota_usage(user_id,day,chat_calls,tokens_in,tokens_out) VALUES(?,?,0,?,?)"
+        " ON CONFLICT(user_id,day) DO UPDATE SET"
+        " tokens_in=tokens_in+excluded.tokens_in, tokens_out=tokens_out+excluded.tokens_out",
+        (user_id, day(), tokens_in or 0, tokens_out or 0),
     )
+
+
+def exhausted(con, user_id) -> bool:
+    """当日次数是否已用尽（只读；API 层据此在**打路由之前**就 429，不花冤枉钱）。"""
+    return _used(con, user_id, day()) >= limit()
+

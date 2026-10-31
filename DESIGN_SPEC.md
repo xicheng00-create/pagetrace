@@ -1,8 +1,8 @@
-# DESIGN_SPEC — pagetrace v0.20.0
+# DESIGN_SPEC — pagetrace v0.23.0
 
 | 项 | 值 |
 |---|---|
-| 版本 | 0.20.0（**与 `backend/app.py` 的 `version` 一致** · 版本号诚实规则见 `CLAUDE.md §5`） |
+| 版本 | 0.23.0（**与 `backend/app.py` 的 `version` 一致** · 版本号诚实规则见 `CLAUDE.md §5`） |
 | 日期 | 2026-10-31 |
 | 作者 | pm（Hermes） |
 | 状态图例 | ✅ 已实现并验证 · ⚠️ 部分/未验证（须写原因）· ❌ 未实现 · 🔒 已冻结（不可单方改） |
@@ -963,6 +963,93 @@ S1-DISPLAY-SCOPE：运行时计算属性名不保证拦截；违规处置：阻�
 
 ### [0.16.4]
 冻结余额为 0 时的提示文案独占页头下方一行（仅 0 时显示）；页头标题、连胜组与退出登录一律不收缩、不折行。
+
+### [0.23.0] 2026-10-31
+
+**REQ-TUTOR-10 三种作答风格（对后续一律适用）**
+- 触发点：tutor 每一轮问答；请求体 `style` ∈ `explain`（默认，详细解释）/ `brief`（简答 ≤3 句 60 字）/ `socratic`（苏格拉底引导：先反问，2 轮后给提示，第 3 轮才给结论）。
+- 覆盖路径：`POST /api/tutor/chat` 校验（非法值 400 `E_INVALID_INPUT`）→ `ai/tutor.build(style=…)` → `ai/tutor_prompts.build_system` 的【作答风格】段；三个入口（复习卡浮层、概念页卡脚、`#/tutor` 页）都由同一 `styleBarHTML()` 渲染常显三选一，选择存 `localStorage.tutorStyle`。
+- 违规处置：缺省必须 `explain`（旧调用不带 style 行为不变）；风格条不得隐藏，当前项须高亮。
+
+### [0.22.1] 2026-10-31
+
+**REQ-TUTOR-09 复习卡工具行（视频讲解 / 问 AI tutor）**
+- 两颗按钮同一水平、等宽两列（`.kc-tools` 网格 1fr 1fr），文字为「视频讲解」「问 AI tutor」；只挂一颗时占满整行。
+- 概念页卡脚按钮同步改「问 AI tutor」，行为不变（浮层 + 首条消息带 `card_id`）。
+
+### [0.22.0] 2026-10-31
+
+**Tutor 第四步：前端两个入口（规格 `~/AgentMemory/projects/xueer-tutor-spec.md` §11 第 3 步）**
+
+**REQ-TUTOR-08 卡片页「问这个」入口（贴卡讲解 · 场景 1）**
+
+- 触发点：复习闪卡页（`#/review`）与概念页（`#/concept/<id>`）每张卡上的一颗入口按钮。
+- 行为：点开全屏浮层，**首条消息自动发出**且带该卡上下文（`mode=card` + `card_id`，正文缺省
+  「讲讲这张卡」由后端定）；回答的 `sources[0].card_id` 指向该卡。
+- 关闭：只移除浮层节点，**不改 `location.hash`、不重新渲染原页面** → 复习进度（当前第几张、
+  是否翻转）原样保留。
+- 开关：入口渲染受 **`<meta name="tutor-ui" content="on|off">`** 控制（`window.TUTOR_UI = false` 等价），
+  `off` 时入口按钮整颗不渲染；`#/tutor` 固定 URL 不受开关影响。
+- 断言：`tests/test_frontend.py::test_tutor_ui_entry_switch`（入口由开关守卫 + 开关存在）+
+  `scripts/tutor_ui_smoke.js`（真浏览器点「问这个」→ 首条消息 `card_id` == 该卡）。
+
+**REQ-TUTOR-09 独立聊天页 `#/tutor`（自由提问 · 场景 2）**
+
+- 路由：`#/tutor`（hash 路由，沿用现有 SPA，不新增后端路由）。
+- 布局（移动优先）：标题 → 学科范围**纵向折叠**（`<details>`，禁横滑）→ 消息流 → **底部固定输入框**
+  （`position: fixed` + `env(safe-area-inset-bottom)`，键盘弹起不遮挡、消息流可回滚）。
+- 今日次数：读 `GET /api/tutor/quota` 的 `remaining`；作答响应自带 `quota` 时就地刷新（不重复请求）。
+- 场景 3/4 入口：「考考我」（`mode=quiz`）与「今天学什么」（`mode=plan`）两颗按钮，单次使用后回 `free`。
+- 断言：`scripts/tutor_ui_smoke.js`（375px 宽 `body.scrollWidth === innerWidth`、输入框贴底、
+  配额文案非空、控制台零 `error`）。
+
+**REQ-TUTOR-10 澄清选项渲染成按钮（对应后端 REQ-TUTOR-06）**
+
+- 触发点：`POST /api/tutor/chat` 返回 `type=clarify`。
+- 行为：`options[]` 渲染为纵向按钮（`data-concept=<concept_id>`），**点一下**即带 `concept_id` 重发
+  （不要求用户手打概念名）；点过之后全部按钮禁用并标出选中项。
+- 违规处置：把选项渲染成纯文本（方括号/顿号列表）视为未实现。断言：`test_frontend.py::test_tutor_clarify_buttons`
+  （`data-concept` 存在、点击带 `concept_id` 重发）+ 冒烟脚本端到端。
+
+**REQ-TUTOR-11 依据边界在页面上的表达（对应规格 §3 硬规则）**
+
+- `〔库外知识〕…〔/库外知识〕` → 独立块（`--paper-2` 底 + 3px 左边线 + 「库外知识」小标签），
+  **标记本身不得以方括号文本出现在页面上**；缺闭合标记时吃到文本末尾（宁可整段标成库外）。
+- `〔网上来源〕…〔/网上来源〕` → 同语法虚线块 + 可点链接（`target=_blank` `rel=noopener`）。
+- `type=not_found` → 「库里没找到贴合的页」块，`sources` 不渲染，不给任何伪造引用。
+- 断言：`test_frontend.py::test_tutor_library_blocks`（模板里只有标记常量、样式块类名存在）+
+  冒烟脚本对 `<aside class="tutor-lib">` 的 DOM 断言与截图。
+
+**UI 条款叠加（对后续一律适用）**：新 UI 一律满足 UI-001（禁横滑）/ UI-003（不可用常显置灰写明原因）/
+UI-004（不引框架与依赖）/ UI-013（相邻可交互块竖向 ≥12px、横向 ≥10px）/ A11Y-001（次文对比度）。
+本次未改动 `ai/rag.py`、`ai/concept_router.py`、`ai/tutor_context.py` 与任何后端接口（零后端改动）。
+
+### [0.21.0] 2026-10-31
+
+**Tutor 第三步：概念表路由（第一层 · 规格 §9f）**
+
+**REQ-TUTOR-07 口语问句先走概念表路由（对后续一律适用）**
+
+- 触发点：任何 `mode=free` 且**未带** `concept_id` 的 `POST /api/tutor/chat`；`mode=card` / `quiz` / `plan`
+  不路由（卡自带、后两者是操作指令）。
+- 检索顺序（free）：**概念表路由 → 命中概念下取卡 → 2-gram + 别名表 → 澄清反问（REQ-TUTOR-06）**。
+  路由给出名字但概念下无卡，视同路由空，继续走 2-gram；2-gram 也弱才反问。
+- 路由实现唯一在 `backend/ai/concept_router.py`（`pick(con, user_id, message, scope)`）；唯一调用点是
+  `ai/tutor_context.py::_route`。清单来自 `ai/rag.py::visible_concepts`（household + `subject_id` /
+  `chapter_id` 收窄），**不得**跨户、不得绕过该视图另写范围 SQL；卡片读取仍只走 `services/card_quiz_pool`。
+- 解析口径：只认与可见概念名**完全相等**的行（容许先去行首编号、行尾标点、外层括号引号三种清洗）；
+  对不上一律丢弃，最多 3 个，无有效行 = `[]`。**禁止**模糊匹配、近似替换、按模型解释改写概念名。
+- 降级（fail-open）：超时 `TUTOR_ROUTE_TIMEOUT`（默认 8 秒）、异常、乱码、无 key → 一律 `[]`，静默退回
+  2-gram，**不得**冒成 500；路由模块自身抛错由 `_route` 再兜一层（`empty_reason=router_exception`）。
+- 记账：路由**不额外扣次数**（`quota_usage.chat_calls` 只由 `tutor_quota.consume()` 加），但 token 必须
+  累加进当日行（`add_tokens` 用 upsert，澄清回合无当日行时建 `chat_calls=0` 行）——**记 token ≠ 记一次调用**；
+  次数已用尽时在打路由之前直接 429，不为注定被拒的请求花模型钱。
+- 契约不变：`type` 仍是 `answer` / `clarify` / `not_found`；`sources` 仍是卡片数组。
+- 断言落点：`tests/test_tutor_router.py`（19 条：完全相等解析 / 模型异常·超时·乱码·模块抛错四路降级 /
+  编排顺序 / card 模式不路由 / 澄清候选优先 / token 累加 / 429 前置）+ A11 真 HTTP 实测。
+  覆盖路径：`ai/concept_router.py`、`ai/tutor_context.py`（`_route` / `_merge_options`）、`ai/tutor.py`
+  （`answer` / `reply_clarify` 的 token 合并）、`services/llm.py`（`tutor_route` feature）、
+  `services/tutor_quota.py`（`add_tokens` / `exhausted`）、`api/tutor.py`（429 前置、澄清与无页的 token 记账）。
 
 ### [0.20.0] 2026-10-31
 

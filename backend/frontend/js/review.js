@@ -57,7 +57,11 @@
         </div>
       </div>
       <div class="kc-hint rise">拖动卡片：右滑 = 记得 · 左滑 = 忘了</div>
-      <button class="btn video-review" type="button">讲解</button>
+      <div class="kc-tools">
+        <button class="btn video-review" type="button">视频讲解</button>
+        ${window.TutorUI && window.TutorUI.enabled()
+          ? `<button class="btn tutor-ask" id="k-ask" type="button">问 AI tutor</button>` : ''}
+      </div>
       <div class="actions rise" style="--d:80">
         <button class="btn" id="k-again">忘了</button>
         <button class="btn solid" id="k-good">记得</button>
@@ -77,6 +81,15 @@
       event.stopPropagation();
       openVideoSheet(c.card_id, videoButton);
     });
+    // 「问这个」：开浮层问 tutor，关掉即回这张卡（不重渲染、不动路由 → 复习进度不丢）
+    const askButton = document.getElementById('k-ask');
+    if (askButton) {
+      askButton.addEventListener('touchstart', (event) => event.stopPropagation(), { passive: true });
+      askButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        window.TutorUI.askCard(c.card_id, c.front);
+      });
+    }
   }
 
   /* 点「讲解」必须立刻出东西：先开面板显示状态，再轮询到 ready 自动播放。
@@ -114,7 +127,7 @@
         if (closed) return;
         if (!state.available) {
           status.textContent = state.reason || '未检测到 VideoKit（设置 VIDEOKIT_HOME）';
-          if (button) button.textContent = '讲解（不可用）';
+          if (button) button.textContent = '视频讲解（不可用）';
           if (timer) { window.clearInterval(timer); timer = null; }
           return;
         }
@@ -124,7 +137,7 @@
           // 每日连胜口径：播放即计「看过 1 个视频」（每日每片去重）
           if (state.video_id) api.post('/api/videos/' + state.video_id + '/view', {}).catch(() => {});
           if (timer) { window.clearInterval(timer); timer = null; }
-          if (button) button.textContent = '讲解';
+          if (button) button.textContent = '视频讲解';
           return;
         }
         if (state.status === 'failed') {

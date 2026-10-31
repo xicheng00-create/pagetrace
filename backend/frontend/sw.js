@@ -1,13 +1,14 @@
 /* Service Worker — App Shell 缓存。
    铁律（CLAUDE.md §5）：前端资产改动必须同时 bump 下面的 CACHE 与 V，
    并在 index.html 把所有 ?v= 一起换掉（Cloudflare 对 .js/.css 强发 max-age，只 bump 这里不够）。 */
-const CACHE = 'review-v0.20.0';
-const V = '0.20.0';
+const CACHE = 'review-v0.23.0';
+const V = '0.23.0';
 const SHELL = [
   '/',
   '/index.html',
   '/css/app.css?v=' + V,
   '/js/api.js?v=' + V,
+  '/js/tutor.js?v=' + V,
   '/js/flashcard.js?v=' + V,
   '/js/app.js?v=' + V, '/js/invites.js?v=' + V,
   '/js/review.js?v=' + V,

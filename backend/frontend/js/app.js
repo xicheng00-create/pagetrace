@@ -247,6 +247,10 @@
         : (upload.reason || '上传暂不可用，请稍后重试'))}</span></span>
     </a>`;
 
+    // tutor 入口（REQ-TUTOR-09）：meta[name=tutor-ui]=off 或 window.TUTOR_UI=false 时整行消失（一键回滚）
+    const tutorEntry = (window.TutorUI && window.TutorUI.enabled())
+      ? `<a class="row" href="#/tutor"><span class="l"><b>问 tutor</b><span>贴库作答 · 库里没有会标出来</span></span></a>`
+      : '';
     const invitesEntry = `<a class="row" href="#/invites"><span class="l"><b>邀請碼</b><span>邀請他人建立獨立帳號</span></span></a>`;
     const familyEntry = `<a class="row" href="#/family"><span class="l"><b>小组</b><span>同一书架，各自学习，互相看得到进度</span></span></a>`;
     const spaceEntry = `<a class="row" href="#/account"><span class="l"><b>个人空间</b><span>我的进度 · 账号与密码</span></span></a>`;
@@ -323,6 +327,7 @@
         <a class="row" href="#/subjects">
           <span class="l"><b>知识卡片</b><span>按学科 / 章节自己选</span></span>
         </a>
+        ${tutorEntry}
         <a class="row" href="#/wrong">
           <span class="l"><b>错题本</b><span>按错次排列 · 重刷</span></span>
         </a>
@@ -562,6 +567,12 @@
     return `<span class="mlabel cm${on ? ' on' : ''}">${esc(c.status_label || '')}</span>`;
   }
 
+  // 卡面「问这个」入口（REQ-TUTOR-08）：开关关闭时整颗按钮不出现（一键回滚）。
+  function askButton(c) {
+    if (!(window.TutorUI && window.TutorUI.enabled())) return '';
+    return `<button class="btn tutor-ask" data-tutor-card="${c.id}" data-tutor-title="${esc(c.front || '')}" type="button">问 AI tutor</button>`;
+  }
+
   // 概念页（UI-019）：h1 = 概念名；卡面 = 子卡短名（有则显示）→ 题面 → 要点 → 页脚（四态 · 已学 n 次 · 来源）
   async function concept(id) {
     html(loading());
@@ -588,6 +599,7 @@
           <div class="cardfoot">${statusBadge(c)}
             <span class="mlabel">已学 <span class="tnum">${c.learn_count}</span> 次 · ${esc(c.source)}</span></div>
           <button class="btn video-request" data-video-card="${c.id}" type="button">讲解视频</button>
+          ${askButton(c)}
           <div class="video-slot" data-video-slot="${c.id}"></div>
         </article>`).join('')}`);
     app.querySelectorAll('[data-video-card]').forEach((button) => button.addEventListener('click', async () => {
@@ -598,6 +610,10 @@
       if (state.status==='failed') { slot.textContent='生成失败：'+(state.error||'未知错误'); return; }
       await api.post('/api/videos/request',{card_id:Number(id)});
       slot.textContent='已加入生成队列，完成后可在此播放';
+    }));
+    app.querySelectorAll('[data-tutor-card]').forEach((button) => button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      window.TutorUI.askCard(button.dataset.askCard, button.dataset.askTitle);
     }));
   }
 
@@ -763,6 +779,7 @@
       if (name === 'chapter' && id) return chapter(id);
       if (name === 'concept' && id) return concept(id);
       if (name === 'today') return today();
+      if (name === 'tutor') return window.TutorView.render();   // REQ-TUTOR-09：独立聊天页（固定 URL，可孤立访问）
       if (name === 'review') return window.ReviewView.render();
       if (name === 'quiz') return window.QuizView.render();
       if (name === 'wrong') return window.WrongView.render();

@@ -16,6 +16,7 @@ from ai import rag, tutor_context, tutor_prompts
 from ai.rag import CardNotFound, ConceptNotFound  # noqa: F401 （API 层按此转 404）
 
 MODES = ("card", "free", "quiz", "plan")
+STYLES = ("explain", "brief", "socratic")
 MESSAGE_MAX = 4000
 CARD_DEFAULT_MESSAGE = "讲讲这张卡"  # mode=card 且没带 message 时的默认问法（贴卡讲解不用先打字）
 SOURCES_MAX = 3
@@ -85,10 +86,11 @@ def messages(con, conversation_id) -> list[dict]:
 
 
 def build(con, user_id, *, mode, message, card_id=None, subject_id=None, chapter_id=None,
-          concept_id=None, conversation=None) -> dict:
+          concept_id=None, conversation=None, style="explain") -> dict:
     """装配上下文 + 判定是否需要澄清反问（结果挂在 `ctx["clarify"]`）。"""
     ctx = tutor_context.gather(con, user_id, mode=mode, message=message, card_id=card_id,
                                subject_id=subject_id, chapter_id=chapter_id, concept_id=concept_id)
+    ctx["style"] = style
     ctx["clarify"] = _decide_clarify(con, ctx, mode, conversation)
     return ctx
 
@@ -173,20 +175,29 @@ def _turn_payload(kind, conv, message_id, mode, text, *, question=None, options=
 
 
 def reply_clarify(con, user_id, *, mode, message, ctx, conversation=None) -> dict:
-    """澄清回合：不调模型（不扣配额，由 API 层保证），只把反问写进会话。"""
+    """澄清回合：不调模型（不扣配额，由 API 层保证），只把反问写进会话。
+
+    路由那一次调用的 token 仍要记账（规格 §9f 第三条：不额外扣次数，但 token 要累加）。
+    """
     clarify = ctx.get("clarify") or {}
+    route = ctx.get("router") or {}
+    tokens_in, tokens_out = _count(route.get("tokens_in")), _count(route.get("tokens_out"))
     conv = conversation or create_conversation(con, user_id, _title(message))
     if clarify.get("exhausted"):
-        message_id = _record_turn(con, conv, user_id, message, NOT_FOUND_REPLY)
-        return _turn_payload("not_found", conv, message_id, mode, NOT_FOUND_REPLY, fallback=True)
+        message_id = _record_turn(con, conv, user_id, message, NOT_FOUND_REPLY,
+                                  tokens_in, tokens_out)
+        return _turn_payload("not_found", conv, message_id, mode, NOT_FOUND_REPLY,
+                             fallback=True, tokens_in=tokens_in, tokens_out=tokens_out)
     options = clarify.get("options") or []
     names = " / ".join(option["name"] for option in options)
     text = f"{CLARIFY_PREFIX}{clarify.get('question') or CLARIFY_QUESTION}"
     if names:
         text += f"：{names}"
-    message_id = _record_turn(con, conv, user_id, message, text)
+    message_id = _record_turn(con, conv, user_id, message, text, tokens_in, tokens_out)
     return _turn_payload("clarify", conv, message_id, mode, text,
-                         question=clarify.get("question") or CLARIFY_QUESTION, options=options)
+                         question=clarify.get("question") or CLARIFY_QUESTION, options=options,
+                         tokens_in=tokens_in, tokens_out=tokens_out)
+
 
 
 def reply_not_found(con, user_id, *, mode, message, conversation=None) -> dict:
@@ -197,13 +208,19 @@ def reply_not_found(con, user_id, *, mode, message, conversation=None) -> dict:
 
 
 def answer(con, user_id, *, mode, message, ctx, conversation=None) -> dict:
-    """跑一次问答并落库（user + assistant 两条消息一次事务，不留半截）。"""
+    """跑一次问答并落库（user + assistant 两条消息一次事务，不留半截）。
+
+    token 账 = 路由那一次 + 作答这一次（规格 §9f 第三条）。两次都未知才记 None，不拿 0 顶替。
+    """
     conv = conversation or create_conversation(con, user_id, _title(message))
     payload = tutor_prompts.build_messages(ctx, message, history(con, conv["id"]))
     text, tokens_in, tokens_out = _call_llm(payload)
     used_llm = text is not None
     if not used_llm:
         text = library_reply(ctx)
+    route = ctx.get("router") or {}
+    tokens_in = _add_count(tokens_in, route.get("tokens_in"))
+    tokens_out = _add_count(tokens_out, route.get("tokens_out"))
     message_id = _record_turn(con, conv, user_id, message, text, tokens_in, tokens_out)
     return {
         "type": "answer",
@@ -220,6 +237,13 @@ def answer(con, user_id, *, mode, message, ctx, conversation=None) -> dict:
 
 def _count(value):
     return value if type(value) is int and value >= 0 else None
+
+
+def _add_count(*values):
+    """多次调用的 token 相加；全部未知才返回 None（未知 ≠ 0）。"""
+    known = [_count(value) for value in values]
+    known = [value for value in known if value is not None]
+    return sum(known) if known else None
 
 
 def _call_llm(payload):

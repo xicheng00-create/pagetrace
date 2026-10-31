@@ -2,8 +2,17 @@
 import pytest
 from tutor_fixtures import bearer, make_app, token_for
 
+from ai import concept_router
 from ai import tutor as tutor_mod
 from services import llm
+
+# 路由层单独测（tests/test_tutor_router.py）。本文件把路由打空 → 行为等价 0.20.0，且不依赖网络。
+_ROUTE_EMPTY = {"names": [], "tokens_in": None, "tokens_out": None, "ms": 0, "empty_reason": "stub"}
+
+
+@pytest.fixture(autouse=True)
+def _no_concept_router(monkeypatch):
+    monkeypatch.setattr(concept_router, "pick_detailed", lambda *args, **kwargs: dict(_ROUTE_EMPTY))
 
 
 @pytest.fixture

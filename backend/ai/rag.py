@@ -43,6 +43,20 @@ _CONCEPT_SQL = (
     " AND (? IS NULL OR b.subject_id=?) AND (? IS NULL OR ch.id=?)"
 )
 
+# 概念表路由（规格 §9f）要的清单：与上面同一个可见范围，多带学科/书/章用于**排序**
+# （「按学科/章节排序」是派发口径：同一份清单每次喂给模型的顺序必须一样，否则路由结果不可复现）。
+_VISIBLE_CONCEPT_SQL = (
+    "SELECT cp.id AS concept_id, cp.name AS concept_name, COALESCE(cp.tags,'') AS tags,"
+    " ch.id AS chapter_id, ch.name AS chapter_name,"
+    " b.id AS book_id, b.title AS book_title, b.subject_id AS subject_id"
+    " FROM concepts cp JOIN chapters ch ON ch.id=cp.chapter_id"
+    " JOIN books b ON b.id=ch.book_id"
+    " WHERE b.owner_id IN (SELECT u2.id FROM users u2 WHERE u2.household_id="
+    "(SELECT u1.household_id FROM users u1 WHERE u1.id=?))"
+    " AND (? IS NULL OR b.subject_id=?) AND (? IS NULL OR ch.id=?)"
+    " ORDER BY b.subject_id, b.id, ch.id, cp.id"
+)
+
 
 class CardNotFound(LookupError):
     """卡片不存在，或不在该登录用户可见范围（两者对外一律 404，不泄露存在性）。"""
@@ -201,6 +215,15 @@ def concept_options(con, query: str, *, user_id, subject_id=None, chapter_id=Non
     scored.sort(key=lambda item: (-item[0], item[1]))
     return [{"concept_id": concept_id, "name": name}
             for _overlap, concept_id, name in scored[:limit]]
+
+
+def visible_concepts(con, user_id, subject_id=None, chapter_id=None) -> list[dict]:
+    """该用户**可见范围内**的概念清单（按学科 → 书 → 章 → id 排序；概念路由的输入，规格 §9f）。"""
+    return [
+        dict(row) for row in con.execute(
+            _VISIBLE_CONCEPT_SQL,
+            (user_id, subject_id, subject_id, chapter_id, chapter_id)).fetchall()
+    ]
 
 
 def retrieve_concepts(con, query: str, *, user_id, subject_id=None, chapter_id=None,

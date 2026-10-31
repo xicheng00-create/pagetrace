@@ -5,8 +5,17 @@
 import pytest
 from tutor_fixtures import bearer, make_app, token_for
 
+from ai import concept_router
 from ai import rag
 from ai import tutor as tutor_mod
+
+# 路由层单独测（tests/test_tutor_router.py）。本文件把路由打空 → 行为等价 0.20.0，且不依赖网络。
+_ROUTE_EMPTY = {"names": [], "tokens_in": None, "tokens_out": None, "ms": 0, "empty_reason": "stub"}
+
+
+@pytest.fixture(autouse=True)
+def _no_concept_router(monkeypatch):
+    monkeypatch.setattr(concept_router, "pick_detailed", lambda *args, **kwargs: dict(_ROUTE_EMPTY))
 
 # 追加 3 个概念 + 3 张卡：让「他动手了我怕他」这一句在别名臂上能落到 ≥3 个概念候选
 # （主库有大量这类概念，测试库要自己补齐，否则「不足 3 个不反问」会直接被触发）。

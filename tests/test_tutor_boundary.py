@@ -5,12 +5,22 @@ from pathlib import Path
 import pytest
 from tutor_fixtures import make_app
 
-from ai import tutor_context, tutor_prompts
+from ai import concept_router, tutor_context
+from ai import tutor_prompts
 
 BACKEND = Path(__file__).resolve().parents[1] / "backend"
 WRITE_TABLES = {"conversations", "messages", "tutor_actions", "quota_usage"}
 USER_TABLES = {"cards", "card_reviews", "quiz_attempts", "prefs", "books", "concepts",
                "chapters", "subjects", "users", "card_video_links", "video_views"}
+
+# 路由层单独测（tests/test_tutor_router.py）。本文件把路由打空 → 行为等价 0.20.0，且不依赖网络。
+_ROUTE_EMPTY = {"names": [], "tokens_in": None, "tokens_out": None, "ms": 0, "empty_reason": "stub"}
+
+
+@pytest.fixture(autouse=True)
+def _no_concept_router(monkeypatch):
+    monkeypatch.setattr(concept_router, "pick_detailed", lambda *args, **kwargs: dict(_ROUTE_EMPTY))
+
 
 
 @pytest.fixture
@@ -22,7 +32,7 @@ def app(tmp_path, monkeypatch):
 def test_tutor_modules_only_write_their_own_tables():
     """静态断言：tutor 侧代码里出现的写语句只能落在四张自己的表上。"""
     targets = ["ai/tutor.py", "ai/tutor_context.py", "ai/tutor_prompts.py", "ai/rag.py",
-               "services/tutor_quota.py", "api/tutor.py"]
+               "ai/concept_router.py", "services/tutor_quota.py", "api/tutor.py"]
     found = []
     for rel in targets:
         source = (BACKEND / rel).read_text(encoding="utf-8")

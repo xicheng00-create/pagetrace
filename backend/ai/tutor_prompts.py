@@ -21,6 +21,9 @@ TUTOR_SYSTEM = """你是「学而时习之」复习 app 里的助教，服务对
 【场景】
 {mode_rule}
 
+【作答风格】
+{style_rule}
+
 【用户点选】
 {picked_block}
 
@@ -36,6 +39,15 @@ TUTOR_SYSTEM = """你是「学而时习之」复习 app 里的助教，服务对
 【今日队列】
 {plan_block}
 """
+
+_STYLE_RULES = {
+    "explain": "详细解释（默认）：先给一句话结论，再分点讲机制与「为什么」，必要时举一个库内例子；"
+               "总长 150–300 字，不用套话开场。",
+    "brief": "简答：最多 3 句、60 字以内，只给结论与最关键的一条依据；不展开、不举例、不反问。",
+    "socratic": "苏格拉底引导：不直接给答案。先反问一个能推进思考的小问题（一次只问一个），"
+                "学习者答完再追问；连续 2 轮仍答不到点才给半句提示，第 3 轮才给结论。",
+}
+
 
 _MODE_RULES = {
     "card": "贴卡讲解：先把这张卡问句要的答案讲清（用卡片答案），再补一句它在这个概念里的位置；"
@@ -97,6 +109,7 @@ def build_system(ctx) -> str:
         lib_open=LIB_OPEN,
         lib_close=LIB_CLOSE,
         mode_rule=_MODE_RULES.get(ctx.get("mode"), _MODE_RULES["free"]),
+        style_rule=_STYLE_RULES.get(ctx.get("style"), _STYLE_RULES["explain"]),
         picked_block=_picked_block(ctx),
         cards_block=_cards_block(ctx),
         concepts_block=_concepts_block(ctx),

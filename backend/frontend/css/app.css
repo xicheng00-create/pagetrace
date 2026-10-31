@@ -191,6 +191,10 @@ a.row.plain:hover { background: var(--card); }
 .btn:disabled .why { display: block; margin-top: 3px; font-size: 11.5px; font-weight: 600;
   letter-spacing: .02em; color: var(--disabled-ink); }
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+/* 复习卡工具行：视频讲解 / 问 AI tutor 同一水平、等宽（REQ-TUTOR-08 口径） */
+.kc-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.kc-tools:has(> :only-child) { grid-template-columns: 1fr; }
+.kc-tools > .btn { width: 100%; }
 
 /* —— 要点列表：hairline 分隔，禁嵌套卡 / 禁彩色左边框 —— */
 .points { margin-top: 18px; border-top: 1px solid var(--hair); }
@@ -397,3 +401,116 @@ a.row.plain:hover { background: var(--card); }
 #logoutBtn { width:100%; margin-top:18px; }
 .topbar-inner .avatar { margin-left:auto; margin-right:0; }
 .h3 { font-size:16px; margin:18px 0 4px; }
+
+/* —— TUTOR 入口（tutor 规格 §11 第 3 步 · REQ-TUTOR-08…12）——
+   浮层与独立聊天页共用一套语法：暖纸底、hairline 结构、唯一 accent 草绿；
+   禁横向滑动（UI-001）：选项/范围一律纵向排；相邻可交互块 gap ≥12px（UI-013）。 */
+.tutor-sheet { position: fixed; inset: 0; z-index: 900; display: flex; flex-direction: column;
+  background: var(--paper); }
+.tutor-sheet[hidden] { display: none; }
+.tutor-sheet-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--hair); background: var(--paper); }
+.tutor-sheet-head .l { display: flex; flex-direction: column; min-width: 0; }
+.tutor-sheet-head .l > b { font-size: 15px; font-weight: 800; }
+.tutor-sheet-head .l > .sub { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 52vw; }
+.tutor-sheet-head .r { display: flex; align-items: center; gap: 10px; flex: none; }
+.tutor-close { font: inherit; font-size: 14px; font-weight: 800; color: var(--ink); background: var(--card);
+  border: 1px solid var(--hair); border-radius: var(--r-btn); padding: 9px 14px; cursor: pointer;
+  white-space: nowrap; min-height: 40px; }
+.tutor-close:hover { background: var(--paper-2); }
+
+/* 消息流：浮层内自带滚动（关闭后原页面状态原样保留）；独立页随文档流滚动。 */
+.tutor-thread { min-width: 0; }
+.tutor-sheet .tutor-thread { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; padding: 16px 18px 24px; }
+.tutor-page .tutor-thread { padding: 18px 0 8px; }
+.tutor-msg { margin: 0 0 18px; min-width: 0; }
+.tutor-msg .who { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.tutor-msg .body { font-size: 17.5px; line-height: 1.75; color: var(--ink-2); overflow-wrap: anywhere; }
+.tutor-msg .body p { margin: 0 0 8px; overflow-wrap: anywhere; }
+.tutor-msg .body p:last-child { margin-bottom: 0; }
+.tutor-msg.me .who { text-align: right; color: var(--green); }
+.tutor-msg.me .body { text-align: right; color: var(--ink); background: var(--paper-2);
+  border-radius: var(--r-btn); padding: 10px 14px; }
+.tutor-msg.pending .body { opacity: .75; }
+.tutor-q { font-size: 20px; font-weight: 800; line-height: 1.35; color: var(--ink); }
+
+/* 澄清选项：可点按钮（纵向，不横滑）；点过之后禁用并标出选中项 */
+.tutor-opts { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.tutor-opt { width: 100%; text-align: left; white-space: normal; line-height: 1.4; padding: 14px 16px; }
+.tutor-opt.sel { border-color: var(--green); background: var(--green-tint); color: var(--green-deep); }
+.tutor-opt:disabled { color: var(--disabled-ink); background: var(--card); border-color: var(--hair); }
+
+/* 〔库外知识〕块：浅色底 + 左边线 + 左上角小标签（不是方括号直出） */
+.tutor-lib { background: var(--paper-2); border-left: 3px solid var(--muted); border-radius: var(--r-chip);
+  padding: 12px 14px; margin: 10px 0; }
+.tutor-lib .tlab { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: .16em;
+  color: var(--ink-2); margin-bottom: 4px; }
+.tutor-lib p { font-size: 16px; line-height: 1.7; color: var(--ink-2); }
+/* 〔网上来源〕块：同语法、虚线圈定，链接可直接点（带 URL 与抓取日期） */
+.tutor-web { background: var(--green-tint); border: 1px dashed var(--green); border-radius: var(--r-chip);
+  padding: 12px 14px; margin: 10px 0; }
+.tutor-web .tlab { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: .16em;
+  color: var(--green-deep); margin-bottom: 4px; }
+.tutor-web p { font-size: 16px; line-height: 1.7; overflow-wrap: anywhere; }
+.tutor-web a { color: var(--green-deep); }
+/* not_found：如实说没找到，不给伪造引用 */
+.tutor-none { border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); padding: 12px 0; }
+.tutor-none .tlab { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: .16em;
+  color: var(--muted); margin-bottom: 4px; }
+.tutor-none p { font-size: 17px; color: var(--ink-2); }
+.tutor-none .sub { font-size: 14.5px; color: var(--muted); }
+/* 来源列表：卡片出处，不重复正文（信息只说一次） */
+.tutor-src { margin-top: 12px; border-top: 1px solid var(--hair); padding-top: 10px; }
+.tutor-src .tlab { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: .16em;
+  color: var(--muted); margin-bottom: 4px; }
+.tutor-src li { font-size: 14.5px; color: var(--muted); padding: 4px 0; overflow-wrap: anywhere; }
+.tutor-src li b { display: block; font-size: 15px; color: var(--ink-2); font-weight: 800; }
+.tutor-src li span { display: block; }
+
+/* 输入区：独立页固定底部（iPhone 键盘弹起不遮挡），浮层内是 flex 尾块 */
+.tutor-composer { flex: 0 0 auto; background: var(--paper); border-top: 1px solid var(--hair);
+  padding: 10px 18px calc(10px + env(safe-area-inset-bottom)); }
+.tutor-page .tutor-composer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  max-width: 720px; margin: 0 auto; border-left: 1px solid var(--hair); border-right: 1px solid var(--hair);
+  border-radius: var(--r-card) var(--r-card) 0 0; }
+.tutor-page { padding-bottom: 168px; }
+/* 任何滚动到消息的动作都要给底部固定输入框留出 132px，否则最后一块会被压住 */
+.tutor-page .tutor-msg { scroll-margin-bottom: 132px; }
+.tutor-form { display: flex; align-items: flex-end; gap: 12px; }
+.tutor-input { flex: 1 1 auto; min-width: 0; min-height: 46px; max-height: 132px; resize: none;
+  padding: 11px 13px; font: inherit; font-size: 16px; line-height: 1.4; color: var(--ink);
+  background: var(--card); border: 1px solid var(--hair); border-radius: var(--r-btn); }
+.tutor-input:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
+.tutor-send { flex: none; padding: 12px 18px; min-height: 46px; }
+.tutor-quick { display: flex; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.tutor-quick-btn { flex: 1 1 0; min-width: 120px; padding: 10px 12px; font-size: 14px; }
+/* tutor 三种作答风格：常显、三等分、当前项高亮 */
+.tutor-styles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.tutor-style { padding: 8px 6px; font-size: 13.5px; border-radius: var(--r-chip); }
+.tutor-style.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+/* 范围选择：纵向折叠（禁横滑）；选中行用唯一 accent 绿 */
+.tutor-scope { margin: 14px 0 0; }
+.tutor-scope > summary { list-style: none; cursor: pointer; display: flex; align-items: center;
+  justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--hair);
+  border-radius: var(--r-btn); background: var(--card); }
+.tutor-scope > summary::-webkit-details-marker { display: none; }
+.tutor-scope > summary .l { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.tutor-scope > summary .l > b { font-size: 15px; font-weight: 800; }
+.tutor-scope > summary .r { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.tutor-scope[open] > summary { background: var(--paper-2); }
+.tutor-scope[open] .caret { transform: rotate(180deg); }
+.tutor-scope-item { width: 100%; text-align: left; font: inherit; }
+.tutor-scope-item .l { text-align: left; }
+.tutor-scope-item.on { border-color: var(--green); background: var(--green-tint); }
+.tutor-scope-item.on .l > b { color: var(--green-deep); }
+.tutor-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 14px 0 10px; border-bottom: 1px solid var(--hair); }
+.tutor-quota { font-size: 13px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tutor-empty { padding: 6px 0 2px; }
+.tutor-empty b { color: var(--ink); font-weight: 800; }
+/* 卡片页入口按钮（卡面/概念页卡脚）：块级、与上一颗按钮竖向 gap 12px（UI-013）；开关关闭时整颗不渲染 */
+.tutor-ask { display: block; width: 100%; margin-top: 12px; white-space: normal; }
+@media (min-width: 721px) { .tutor-page .tutor-composer { border-radius: var(--r-card); bottom: 12px; } }

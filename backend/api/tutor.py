@@ -35,6 +35,9 @@ def chat():
     mode = payload.get("mode") or "free"
     if mode not in tutor.MODES:
         return e_input("mode 只能是 card / free / quiz / plan")
+    style = payload.get("style") or "explain"
+    if style not in tutor.STYLES:
+        return e_input("style 只能是 explain / brief / socratic")
     raw_message = payload.get("message")
     if raw_message is not None and not isinstance(raw_message, str):
         return e_input("message 必须是字符串")
@@ -60,11 +63,15 @@ def chat():
         return e_input(f"message 超过 {tutor.MESSAGE_MAX} 字")
 
     con, user_id = get_db(), g.user_id
+    # 路由要花真金白银（≈2.5k 字输入）：次数已用尽就别打，直接 429（口径同 consume 的那一条）。
+    # 只挡「会打路由」的路径（free 且未点选），card 的 404 语义与顺序一格不动。
+    if mode == "free" and concept_id is None and tutor_quota.exhausted(con, user_id):
+        return err("E_QUOTA", tutor_quota.MESSAGE, 429)
     try:
         conversation = tutor.load_conversation(con, user_id, conversation_id) if conversation_id else None
         ctx = tutor.build(con, user_id, mode=mode, message=message, card_id=card_id,
                           subject_id=subject_id, chapter_id=chapter_id, concept_id=concept_id,
-                          conversation=conversation)
+                          conversation=conversation, style=style)
     except tutor.ConversationNotFound:
         return e_not_found("会话不存在")
     except tutor.CardNotFound:
@@ -72,10 +79,11 @@ def chat():
     except tutor.ConceptNotFound:
         return e_not_found("概念不存在")
 
-    # 澄清反问 / 库内无页：不调模型、不扣次数（规格 §9e）
+    # 澄清反问 / 库内无页：不调模型、不扣次数（规格 §9e）；但路由那一次的 token 仍要记账（§9f）。
     if ctx.get("clarify"):
         result = tutor.reply_clarify(con, user_id, mode=mode, message=message, ctx=ctx,
                                      conversation=conversation)
+        tutor_quota.add_tokens(con, user_id, result["tokens_in"], result["tokens_out"])
         con.commit()
         result["quota"] = tutor_quota.state(con, user_id)
         return ok(result)

@@ -760,3 +760,80 @@ def test_video_frontend_contracts():
     worker = (ROOT / "backend" / "video_worker.py").read_text()
     assert "JSON.stringify" not in worker
     assert "--neighbours" in worker and "、" in worker
+
+
+# ——— tutor 前端两个入口（REQ-TUTOR-08…11 · tutor 规格 §11 第 3 步）———
+def _tutor_js() -> str:
+    return _frontend("js/tutor.js")
+
+
+def test_tutor_entry_wiring():
+    app = _frontend("js/app.js")
+    review = _frontend("js/review.js")
+    idx = _frontend("index.html")
+    # 新脚本进 index.html 与 SW 预缓存（同版本串，见 test_three_piece_versions_match）
+    assert "/js/tutor.js?v=" in idx
+    assert "'/js/tutor.js?v=' + V" in _frontend("sw.js")
+    # ① 独立聊天页有固定 URL 且由 TutorView 渲染
+    assert "if (name === 'tutor') return window.TutorView.render();" in app
+    # ② 两个入口都存在且都被同一个开关守卫（首页行 + 概念页卡脚 + 复习闪卡）
+    assert app.count("window.TutorUI.enabled()") == 2
+    assert review.count("window.TutorUI.enabled()") == 1
+    # ③ 浮层首条消息带该卡上下文：render 时传 card_id 与卡面
+    assert "askCard(c.card_id, c.front)" in review
+    assert "askCard(button.dataset.askCard, button.dataset.askTitle)" in app
+    assert "body.card_id = state.cardId" in _tutor_js()
+    # ④ 关闭浮层不得改地址（改 hash 会重渲染 → 丢复习进度）
+    close_fn = _tutor_js().split("function closeSheet()")[1].split("function onSheetKey")[0]
+    assert "location" not in close_fn and "hash" not in close_fn
+
+
+def test_tutor_ui_kill_switch():
+    idx = _frontend("index.html")
+    js = _tutor_js()
+    assert '<meta name="tutor-ui" content="on">' in idx
+    # 开关读 meta；off 时 enabled() 返回 false，两个入口整颗不渲染
+    assert "meta[name=\"tutor-ui\"]" in js
+    assert "!== 'off'" in js
+    assert "if (window.TUTOR_UI === false) return false;" in js
+
+
+def test_tutor_clarify_buttons():
+    js = _tutor_js()
+    # 选项 = 按钮，带 concept_id；点一下即带 concept_id 重发（不要求用户打概念名）
+    assert 'data-concept="${Number(op.concept_id)}"' in js
+    assert "send('', { conceptId })" in js
+    assert "body.concept_id = ex.conceptId" in js
+    # 点过即禁用全部选项，避免重复提交
+    assert "b.disabled = true" in js
+    # 澄清标记不得直出（会被当作方括号原文暴露给用户）
+    assert js.count("'〔澄清〕'") == 1 and "const text = String(raw || '').replace(CLARIFY_TAG, '').trim();" in js
+    assert ".tutor-opts { display: flex; flex-direction: column; gap: 12px" in _css()
+
+
+def test_tutor_library_blocks_not_raw_brackets():
+    js = _tutor_js()
+    css = _css()
+    # 标记只以常量形式各出现一次；渲染路径把它们换成独立块
+    assert js.count("'〔库外知识〕'") == 1 and js.count("'〔/库外知识〕'") == 1
+    assert js.count("'〔网上来源〕'") == 1 and js.count("'〔/网上来源〕'") == 1
+    assert 'class="tutor-lib"' in js and 'class="tutor-web"' in js
+    # 独立样式：灰底 + 左边线 + 小标签（库外）；虚线圈定（网上）
+    assert ".tutor-lib {" in css and "border-left: 3px solid" in css
+    assert ".tutor-web {" in css and "border: 1px dashed" in css
+    assert 'rel="noopener noreferrer"' in js          # 外链安全属性
+    # not_found → 固定文案，且不渲染 sources（不给伪造引用）
+    assert "库里没找到贴合的页" in js
+    nf = js.split("if (turn.type === 'not_found')")[1].split("return push('ai', formatReply")[0]
+    assert "sourcesHTML" not in nf
+    assert ".tutor-none {" in css
+
+
+def test_tutor_no_horizontal_carousel():
+    css = _css()
+    tutor_css = css[css.index("TUTOR 入口"):]
+    assert "overflow-x: auto" not in tutor_css and "overflow-x: scroll" not in tutor_css
+    assert "carousel" not in tutor_css.lower()
+    js = _tutor_js()
+    assert "scrollLeft" not in js                    # 不用横滑切消息/选项
+    assert "flex-wrap: wrap" in tutor_css            # 快捷按钮换行，不挤成横排

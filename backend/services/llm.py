@@ -73,7 +73,7 @@ def complete_block(text, *, feature='cardgen', **kwargs):
 
 def complete(messages, *, base_url=None, model=None, api_key=None, timeout=None,
              thinking_disabled=True, feature="quiz", with_usage=False):
-    if feature not in ("quiz", "cardgen", "dedupe", "tutor"):
+    if feature not in ("quiz", "cardgen", "dedupe", "tutor", "tutor_route"):
         raise LLMConfigError("未知 LLM feature")
     if feature in ('cardgen', 'dedupe'):
         if len(messages) != 2 or messages != messages_for(feature, messages[-1].get('content')):
@@ -93,6 +93,9 @@ def complete(messages, *, base_url=None, model=None, api_key=None, timeout=None,
         return None
     if feature == 'tutor' and not key and provider != 'local':
         # 无 key 时 tutor 退成「只给库内原文」（ai/tutor.py 的 fallback），不去打一次注定 401 的请求。
+        return (None, {}) if with_usage else None
+    if feature == 'tutor_route' and not key and provider != 'local':
+        # 路由同理：无 key 直接回空，路由层据此静默退回 2-gram（ai/concept_router.py）。
         return (None, {}) if with_usage else None
     payload = {'model': model or config('LLM_MODEL'), 'messages': messages, 'temperature': 0.4}
     # 关思考只对懂这个字段的档位发（proxy/official）；local 档（Ollama/LM Studio/vLLM 等）不认

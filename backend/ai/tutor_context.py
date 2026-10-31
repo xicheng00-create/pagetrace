@@ -6,15 +6,19 @@
 """
 from __future__ import annotations
 
+import logging
+
 from config import BaseConfig
 from flask import current_app, has_app_context
 from services import card_quiz_pool
 from services.clock import iso as clock_iso
 from services.clock import now as clock_now
 
-from ai import rag
+from ai import concept_router, rag
 
 WRONG_LIMIT = 5
+
+logger = logging.getLogger(__name__)
 
 
 def _cfg(key, default):
@@ -64,12 +68,56 @@ def plan_summary(con, user_id) -> dict:
     }
 
 
+def _route(con, user_id, message, subject_id, chapter_id, top_k) -> tuple[dict, list, list]:
+    """概念表路由第一层（规格 §9f）：路由 → 命中概念下取卡。返回 (route, concepts, cards)。
+
+    路由模块自己已经吞掉模型侧的失败；这里再兜一层「路由模块本身抛了」——
+    第一层永远不许把 500 带给用户（A11 第二条：路由打桩抛异常 → 退回 2-gram、不 500）。
+    """
+    try:
+        route = concept_router.pick_detailed(
+            con, user_id, message,
+            {"subject_id": subject_id, "chapter_id": chapter_id})
+        if not route["names"]:
+            return route, [], []
+        concepts = concept_router.concepts_by_names(con, route["names"], user_id=user_id,
+                                                   subject_id=subject_id, chapter_id=chapter_id)
+        cards = concept_router.cards_of_concepts(con, [row["concept_id"] for row in concepts],
+                                                 user_id=user_id, top_k=top_k)
+        return route, concepts, cards
+    except Exception:
+        logger.warning("概念路由异常，退回 2-gram", exc_info=True)
+        return ({"names": [], "tokens_in": None, "tokens_out": None, "ms": 0,
+                 "empty_reason": "router_exception"}, [], [])
+
+
+
+def _routes_this_turn(mode) -> bool:
+    """只有自由提问走路由：card 自带卡、quiz/plan 是操作指令（规格 §9f 只给 free 定顺序）。"""
+    return mode == "free"
+
+
+def _merge_options(routed_concepts, options, limit: int) -> list[dict]:
+    """澄清候选：路由候选优先，不足 3 个再按 2-gram 重叠补（规格 §9f）。"""
+    merged: dict[int, dict] = {}
+    for row in routed_concepts or []:
+        merged.setdefault(row["concept_id"], {"concept_id": row["concept_id"],
+                                              "name": row["concept_name"]})
+    for option in options or []:
+        if option.get("concept_id") is not None:
+            merged.setdefault(option["concept_id"], option)
+    return list(merged.values())[:limit]
+
+
 def gather(con, user_id, *, mode: str, message: str, card_id=None,
            subject_id=None, chapter_id=None, concept_id=None) -> dict:
     """装配一次对话要用的全部上下文。mode=card 且卡不可见 → 抛 CardNotFound（调用方转 404）。
 
     `concept_id` 来自澄清反问的点选：命中就**跳过检索**，直接在该概念下取卡（规格 §9e）；
     概念不可见 → 抛 ConceptNotFound（调用方转 404）。
+
+    `mode=free` 且没点选时走三层（规格 §9f）：
+    **概念表路由 → 命中概念下取卡** → 路由空/概念下无卡才 2-gram + 别名表 → 仍无则澄清反问。
     """
     top_k = int(_cfg("TUTOR_TOP_K", 5))
     if concept_id is not None:
@@ -86,23 +134,50 @@ def gather(con, user_id, *, mode: str, message: str, card_id=None,
             "picked_concept": {"concept_id": concept["concept_id"], "name": concept["concept_name"]},
             "retrieval": {"weak": False, "top_coverage": 1.0, "alias_hits": 0, "options": [],
                           "via": "concept", "empty": not hits},
+            "router": None,
         }
     else:
-        picked = rag.pick(con, message, user_id=user_id, subject_id=subject_id,
-                          chapter_id=chapter_id, top_k=top_k)
-        ctx = {
-            "mode": mode,
-            "hits": picked["cards"],
-            "concepts": rag.retrieve_concepts(con, message, user_id=user_id, subject_id=subject_id,
-                                              chapter_id=chapter_id, top_k=3),
-            "card": None,
-            "wrong": [],
-            "plan": None,
-            "picked_concept": None,
-            "retrieval": {"weak": picked["weak"], "top_coverage": picked["top_coverage"],
-                          "alias_hits": len(picked["alias_hits"]), "options": picked["options"],
-                          "via": "alias" if picked["alias_hits"] else "exact", "empty": not picked["cards"]},
-        }
+        route, routed_concepts, routed_cards = ({"names": [], "tokens_in": None, "tokens_out": None,
+                                                 "ms": 0, "empty_reason": None}, [], [])
+        if _routes_this_turn(mode):
+            route, routed_concepts, routed_cards = _route(
+                con, user_id, message, subject_id, chapter_id, top_k)
+        if routed_cards:
+            ctx = {
+                "mode": mode,
+                "hits": routed_cards,
+                "concepts": [{"name": row["concept_name"], "chapter_name": row["chapter_name"],
+                              "concept_id": row["concept_id"]} for row in routed_concepts],
+                "card": None,
+                "wrong": [],
+                "plan": None,
+                "picked_concept": None,
+                "retrieval": {"weak": False, "top_coverage": 1.0, "alias_hits": 0, "options": [],
+                              "via": "router", "empty": False},
+                "router": route,
+            }
+        else:
+            picked = rag.pick(con, message, user_id=user_id, subject_id=subject_id,
+                              chapter_id=chapter_id, top_k=top_k)
+            ctx = {
+                "mode": mode,
+                "hits": picked["cards"],
+                "concepts": rag.retrieve_concepts(con, message, user_id=user_id,
+                                                  subject_id=subject_id,
+                                                  chapter_id=chapter_id, top_k=3),
+                "card": None,
+                "wrong": [],
+                "plan": None,
+                "picked_concept": None,
+                "retrieval": {"weak": picked["weak"], "top_coverage": picked["top_coverage"],
+                              "alias_hits": len(picked["alias_hits"]),
+                              "options": _merge_options(routed_concepts, picked["options"],
+                                                        rag.CLARIFY_MAX_OPTIONS),
+                              "via": "alias" if picked["alias_hits"] else "exact",
+                              "empty": not picked["cards"]},
+                "router": route,
+            }
+
     if mode == "card":
         ctx["card"] = card_detail(con, card_id, user_id)
         # 贴卡讲解：当前卡及其同概念卡优先于全库命中（当前卡是「他正在看的那张」）
