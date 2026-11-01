@@ -329,6 +329,16 @@
     const panel = createPanel(root, { sheet: false, mode: 'free' });
     try {
       const subs = (await api.get('/api/subjects')).data.subjects || [];
+      const libCards = subs.reduce((n, s) => n + (s.cards_total || 0), 0);
+      if (!libCards) {
+        const thread = root.querySelector('[data-thread]');
+        if (thread && !thread.querySelector('.tutor-empty-lib')) {
+          thread.insertAdjacentHTML('beforeend', `<div class="tutor-empty-lib">
+            <b>你的书架还是空的</b>
+            <span>现在问，我只能按〔库外知识〕回答，不会引用你的卡片。上传一本 PDF，出卡确认后再来问，答案会贴着你自己的书。</span>
+            <a class="btn" href="#/upload">上传一本 PDF</a></div>`);
+        }
+      }
       const list = root.querySelector('[data-scope-list]');
       const label = root.querySelector('[data-scope-label]');
       list.innerHTML = [`<button class="row tutor-scope-item on" type="button" data-subject="0">

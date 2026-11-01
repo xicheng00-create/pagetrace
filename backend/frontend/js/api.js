@@ -21,17 +21,17 @@
   }
   function update() {
     const register = mode === 'register', bootstrap = mode === 'bootstrap';
-    document.getElementById('authTitle').textContent = register ? '註冊 / 建立小組' : bootstrap ? '建立第一個帳號' : '登入';
-    document.getElementById('authGuide').textContent = register ? '填邀請碼＝加入對方小組；留空＝新建你自己的小組。密碼 ≥8 位。'
-      : bootstrap ? '首次啟動：建立第一個帳號，密碼至少 8 位；之後可用邀請碼邀請他人。'
-      : state.needs_claim ? '首次使用：用任意 ≥8 位新密碼登入以認領此帳號'
-      : '已有帳號請登入；首次加入可用邀請碼註冊。';
+    document.getElementById('authTitle').textContent = register ? '注册 / 建立小组' : bootstrap ? '建立第一个账号' : '登录';
+    document.getElementById('authGuide').textContent = register ? '填邀请码＝加入对方小组；留空＝新建你自己的小组。密码 ≥8 位。'
+      : bootstrap ? '首次启动：建立第一个账号，密码至少 8 位；之后可用邀请码邀请他人。'
+      : state.needs_claim ? '首次使用：用任意 ≥8 位新密码登录以认领此账号'
+      : '已有账号请登录；首次加入可用邀请码注册。';
     document.getElementById('authCodeField').hidden = !register;
     document.getElementById('authCode').required = false;
     document.getElementById('authPassword').minLength = (register || bootstrap || state.needs_claim) ? 8 : 1;
     document.getElementById('authPassword').autocomplete = (register || bootstrap || state.needs_claim) ? 'new-password' : 'current-password';
-    document.getElementById('authSubmit').textContent = register ? '註冊 / 建立小組' : bootstrap ? '建立第一個帳號' : '登入';
-    document.getElementById('authSwitch').textContent = register ? (state.needs_bootstrap ? '建立第一個帳號' : '返回登入') : '註冊 / 建立小組';
+    document.getElementById('authSubmit').textContent = register ? '注册 / 建立小组' : bootstrap ? '建立第一个账号' : '登录';
+    document.getElementById('authSwitch').textContent = register ? (state.needs_bootstrap ? '建立第一个账号' : '返回登录') : '注册 / 建立小组';
   }
   // 顶栏账号区：只留圆形头像（点进个人空间）。退出登录在个人空间页内。
   function mountAccountUI() {
@@ -62,7 +62,7 @@
 
   async function refreshState() {
     try { state = (await api.get('/api/auth/state')).data; mode = state.needs_bootstrap ? 'bootstrap' : 'login'; update(); }
-    catch (_) { document.getElementById('authGuide').textContent = '無法讀取首次使用狀態，請重試；已有帳號可登入，或用邀請碼註冊。'; }
+    catch (_) { document.getElementById('authGuide').textContent = '无法读取首次使用状态，请重试；已有账号可登录，或用邀请码注册。'; }
   }
   window.addEventListener('auth-required', () => { panel(true); refreshState(); });
   document.addEventListener('DOMContentLoaded', () => {
@@ -85,7 +85,7 @@
         }
         else await api.post('/api/auth/login', {username, password});
         panel(false); window.App.route();
-      } catch (err) { error.textContent = err.message || '登入失敗，請檢查帳號和密碼'; error.hidden = false; }
+      } catch (err) { error.textContent = err.message || '登录失败，请检查账号和密码'; error.hidden = false; }
       finally { button.disabled = false; }
     });
     fetch('/api/auth/me', {credentials:'same-origin'}).then(r => panel(r.status === 401)).catch(() => panel(true));

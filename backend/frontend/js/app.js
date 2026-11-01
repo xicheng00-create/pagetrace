@@ -136,6 +136,7 @@
       <h2 class="h2">${esc(o.title)}</h2>
       <p class="sub">${esc(o.desc)}</p>
       ${o.howto ? `<div class="hairline"></div><p class="sub">${o.howto}</p>` : ''}
+      ${o.extra || ''}
       ${act}
     </section>`;
   }
@@ -242,7 +243,7 @@
 
     const upload = uploadRes.data || { can_upload: false, reason: '暂时无法读取上传额度，请稍后重试' };
     const uploadEntry = `<a class="row${upload.can_upload ? '' : ' disabled'}" href="#/upload"${upload.can_upload ? '' : ' aria-disabled="true"'}>
-      <span class="l"><b>上傳自己的書</b><span>${esc(upload.can_upload
+      <span class="l"><b>上传自己的书</b><span>${esc(upload.can_upload
         ? 'PDF 上传后自动切书出卡，约 10–30 分钟，出完再确认'
         : (upload.reason || '上传暂不可用，请稍后重试'))}</span></span>
     </a>`;
@@ -251,7 +252,7 @@
     const tutorEntry = (window.TutorUI && window.TutorUI.enabled())
       ? `<a class="row" href="#/tutor"><span class="l"><b>问 tutor</b><span>贴库作答 · 库里没有会标出来</span></span></a>`
       : '';
-    const invitesEntry = `<a class="row" href="#/invites"><span class="l"><b>邀請碼</b><span>邀請他人建立獨立帳號</span></span></a>`;
+    const invitesEntry = `<a class="row" href="#/invites"><span class="l"><b>邀请码</b><span>邀请他人建立独立账号</span></span></a>`;
     const familyEntry = `<a class="row" href="#/family"><span class="l"><b>小组</b><span>同一书架，各自学习，互相看得到进度</span></span></a>`;
     const spaceEntry = `<a class="row" href="#/account"><span class="l"><b>个人空间</b><span>我的进度 · 账号与密码</span></span></a>`;
     if (!subs.length) {
@@ -259,8 +260,15 @@
         label: '空 · Empty',
         title: '书架空着 · 先放一本书',
         desc: '上传一本文字型 PDF，后台会自动切书、生成知识卡片草稿。',
-        howto: '点「上传自己的书」选文件就行，过程中不用守着：一般在 10–30 分钟内出草稿，'
-          + '书越大越久；出完后到「草稿」确认，卡片就会进入复习。',
+        howto: '整个过程四步，中间不用守着：上传 → 等 10–30 分钟出草稿 → 在「草稿」确认 → 开始复习。',
+        extra: `<ol class="steps">
+          <li><b>上传一本文字型 PDF</b><span>扫描件不行；书越大越久，期间可以关掉页面</span></li>
+          <li><b>等后台自动切书出卡</b><span>进度在「上传」页看，出完会标「草稿已就绪」</span></li>
+          <li><b>到「草稿」点确认入库</b><span>确认前不会影响掌握度和连胜</span></li>
+          <li><b>开始复习 / 刷题 / 问 tutor</b><span>学过几张卡之后，出题池才会有题</span></li>
+        </ol>
+        <p class="retry"><a class="btn solid" href="#/upload">上传一本 PDF</a>
+          <a class="btn" href="#/drafts">查看草稿</a></p>`,
         href: null,
       }) + `<div class="rowlist">${spaceEntry}${familyEntry}${uploadEntry}${invitesEntry}</div>`);
       return;

@@ -84,8 +84,9 @@
         <h2 class="h2">暂无可用题目</h2>
         <p class="sub">出题从<strong>已学卡池</strong>里取（已解锁章内、学过的卡）；池里还没有已学卡时无题可出。</p>
         <div class="hairline"></div>
-        <p class="sub">先学几张卡再来：卡片学过后才会进入出题池，首章解锁即可出题。</p>
-        <p class="retry"><a class="btn" href="#/subjects">去知识卡片</a></p>
+        <p class="sub">顺序是：<b>书架有书 → 卡片解锁 → 学几张 → 才有题</b>。书架还是空的就先上传一本 PDF。</p>
+        <p class="retry"><a class="btn solid" href="#/upload">上传一本 PDF</a>
+          <a class="btn" href="#/subjects">去知识卡片</a></p>
       </section>`;
   }
 
