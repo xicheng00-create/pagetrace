@@ -345,7 +345,19 @@ a.row.plain:hover { background: var(--card); }
 .row.scope-book.on { border-color: var(--green); background: var(--green-tint); }
 .row.scope-book.on .l > b { color: var(--green-deep); }
 .scope-actions { margin-bottom: 4px; }
-.scope-actions:last-of-type { margin-top: 20px; margin-bottom: 0; }
+/* 全选 / 清空 / 确认：三格等宽等高（同一行动作组） */
+.scope-actions-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0 4px; align-items: stretch; }
+.scope-actions-3 > .btn,
+.scope-actions-3 > .primary { width: 100%; height: 56px; min-height: 56px; padding: 0 10px;
+  display: flex; align-items: center; justify-content: center; line-height: 1.2; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* 首页「当前图书范围」：影响全站学习，独立成块，不塞在快捷入口里 */
+.scopeband { display: grid; gap: 2px; margin: 14px 0 4px; padding: 14px 16px;
+  border: 1px solid var(--line); border-left: 3px solid var(--ink); border-radius: var(--r-card);
+  background: var(--paper-2); text-decoration: none; color: inherit; }
+.scopeband b { font-size: 16px; line-height: 1.35; }
+.scopeband .why { font-size: 13px; color: var(--muted); }
 .scope-empty { margin-top: 12px; }
 .scope-empty .mlabel.warn { display: inline-block; margin-right: 6px; }
 /* SCOPE-004（v0.11.0）：确认前草稿脏态「尚未确认」+ 空草稿拦截错误条（role=alert，常显按钮下方） */

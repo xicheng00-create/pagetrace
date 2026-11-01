@@ -312,14 +312,16 @@
     html(`
       <h1 class="display rise">${esc(quote)}</h1>
       <p class="sub rise" style="--d:70">${books} 本书 · ${chapters} 章 · ${cards} 张卡</p>
+      <a class="scopeband rise" href="#/scope" style="--d:90">
+        <span class="mlabel">当前图书范围</span>
+        <b>${esc(scopeLabel)}</b>
+        <span class="why">决定复习 / 出题 / 今日任务用哪些书 · 点此修改</span>
+      </a>
       ${weekLine}
       ${primary}
       ${taskBlock}
       <div class="sectitle">快捷入口</div>
       <div class="rowlist grid rise" style="--d:280">
-        <a class="row" href="#/scope">
-          <span class="l"><b>图书</b><span>${esc(scopeLabel)}</span></span>
-        </a>
         <a class="row" href="#/account">
           <span class="l"><b>个人空间</b><span>我的进度 · 账号与密码</span></span>
         </a>

@@ -65,9 +65,10 @@
       </div>`;
     }).join('');
 
-    const toolbar = `<div class="actions scope-actions">
+    const toolbar = `<div class="actions scope-actions scope-actions-3">
       <button class="btn" id="scope-all" type="button">全选</button>
       <button class="btn" id="scope-clear" type="button">清空</button>
+      <button class="primary" id="scope-confirm" type="button"><b>确认</b><span class="sr-only">保存当前勾选为复习 / 出题 / 今日任务范围</span></button>
     </div>`;
     const repairedLine = repairedHint
       ? `<p class="sub scope-repaired"><span class="mlabel warn">已修复</span> 检测到空范围，已恢复为全部图书</p>`
@@ -80,12 +81,11 @@
     app.innerHTML = `${UI.crumb([{ label: '图书范围' }])}
       <h1 class="display">图书范围</h1>
       <div class="mlabel g">${esc(savedLabel)}</div>
-      <p class="sub">勾选纳入复习 / 出题 / 今日任务的图书；范围外到期卡仍到期（不吃卡、不改期、不丢卡）。</p>
+      <p class="sub">勾选纳入复习 / 出题 / 今日任务的图书；<b>改完点「确认」才生效</b>。范围外到期卡仍到期（不吃卡、不改期、不丢卡）。</p>
       ${toolbar}
       ${repairedLine}
       ${dirtyLine}
       ${errorLine}
-      <div class="actions scope-actions"><button class="primary" id="scope-confirm" type="button"><b>确认</b><span>保存当前勾选为复习 / 出题 / 今日任务范围</span></button></div>
       <div class="rowlist">${rows}</div>`;
 
     // 全选 / 清空：只改草稿（SCOPE-004）
