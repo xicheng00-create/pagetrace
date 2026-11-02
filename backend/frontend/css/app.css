@@ -348,7 +348,7 @@ a.row.plain:hover { background: var(--card); }
 /* 全选 / 清空 / 确认：三格等宽等高（同一行动作组） */
 .scope-actions-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0 4px; align-items: stretch; }
 .scope-actions-3 > .btn,
-.scope-actions-3 > .primary { width: 100%; height: 56px; min-height: 56px; padding: 0 10px;
+.scope-actions-3 > .primary { width: 100%; height: 56px; min-height: 56px; padding: 0 10px; margin: 0;
   display: flex; align-items: center; justify-content: center; line-height: 1.2; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
